@@ -12,7 +12,10 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    try:
+        await init_db()
+    except Exception as e:
+        print(f"DB init skipped (will retry on first request): {e}")
     yield
 
 
@@ -23,7 +26,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://signalpulse.ai"],
+    allow_origins=["http://localhost:3000", "https://signalpulse.ai", "https://signal-pulse-frontend.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
