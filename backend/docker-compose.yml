@@ -1,0 +1,36 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: signalpulse
+      POSTGRES_PASSWORD: signalpulse
+      POSTGRES_DB: signalpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signalpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://signalpulse:signalpulse@db:5432/signalpulse
+      DATABASE_URL_SYNC: postgresql://signalpulse:signalpulse@db:5432/signalpulse
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      APIFY_API_KEY: ${APIFY_API_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:

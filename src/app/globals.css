@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-instrument-sans);
+
+  --color-deep: oklch(13% 0.012 260);
+  --color-surface: oklch(17% 0.012 260);
+  --color-surface-hover: oklch(21% 0.012 260);
+  --color-border: oklch(25% 0.01 260);
+  --color-foreground: oklch(92% 0.004 260);
+  --color-muted: oklch(65% 0.02 260);
+  --color-subtle: oklch(45% 0.02 260);
+  --color-signal: oklch(68% 0.18 75);
+  --color-signal-dark: oklch(52% 0.18 75);
+  --color-signal-light: oklch(82% 0.12 75);
+  --color-teal: oklch(60% 0.08 190);
+  --color-green: oklch(58% 0.14 150);
+}
+
+:root {
+  --background: oklch(13% 0.012 260);
+  --foreground: oklch(92% 0.004 260);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+@keyframes ping-ring {
+  0% { transform: scale(0.5); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes signal-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.animate-radar { animation: radar-sweep 4s linear infinite; }
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+.animate-ping-ring { animation: ping-ring 2s ease-out infinite; }
+.animate-signal-flicker { animation: signal-flicker 3s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-radar,
+  .animate-pulse-dot,
+  .animate-ping-ring,
+  .animate-signal-flicker {
+    animation: none;
+  }
+}
