@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import Link from "next/link"
 import { ArrowRight, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RadarSignal } from "@/components/sections/radar-signal"
@@ -81,17 +82,21 @@ export function Hero() {
               <div className="relative">
                 <div className="absolute inset-0 rounded-lg blur-md bg-signal/30 opacity-60" />
                 <Magnetic strength={0.25}>
-                  <Button variant="primary" size="lg">
-                    Start Free Trial
-                    <ArrowRight className="w-5 h-5" />
-                  </Button>
+                  <Link href="/auth/register">
+                    <Button variant="primary" size="lg">
+                      Start Free Trial
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </Link>
                 </Magnetic>
               </div>
               <Magnetic strength={0.2}>
-                <Button variant="secondary" size="lg">
-                  <Play className="w-5 h-5" />
-                  Watch Demo
-                </Button>
+                <Link href="/auth/register">
+                  <Button variant="secondary" size="lg">
+                    <Play className="w-5 h-5" />
+                    Watch Demo
+                  </Button>
+                </Link>
               </Magnetic>
             </motion.div>
 

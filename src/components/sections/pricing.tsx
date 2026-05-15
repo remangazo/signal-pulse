@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import Link from "next/link"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Magnetic } from "@/components/ui/magnetic"
@@ -48,7 +49,9 @@ export function Pricing() {
             </div>
             <p className="text-sm text-subtle mb-8">One lead closes and it pays for itself</p>
             <Magnetic strength={0.25}>
-              <Button variant="primary" size="lg" className="w-full mb-8">Start Free Trial</Button>
+              <Link href="/auth/register">
+                <Button variant="primary" size="lg" className="w-full mb-8">Start Free Trial</Button>
+              </Link>
             </Magnetic>
             <ul className="space-y-3">
               {featureList.map((feature, i) => (

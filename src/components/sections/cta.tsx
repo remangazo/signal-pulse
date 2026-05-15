@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Magnetic } from "@/components/ui/magnetic"
@@ -26,10 +27,12 @@ export function CTA() {
         <div className="relative inline-block">
           <div className="absolute inset-0 rounded-lg blur-md bg-signal/20" />
           <Magnetic strength={0.3}>
-            <Button variant="primary" size="lg">
-              Start Free Trial
-              <ArrowRight className="w-5 h-5" />
-            </Button>
+            <Link href="/auth/register">
+              <Button variant="primary" size="lg">
+                Start Free Trial
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </Link>
           </Magnetic>
         </div>
         <p className="text-xs text-subtle mt-4">No commitment &bull; Cancel anytime &bull; No setup fees</p>
