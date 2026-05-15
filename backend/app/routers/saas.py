@@ -173,3 +173,24 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         "avg_intent_score": round(float(avg_score or 0), 1),
         "last_pipeline_run": last_run.created_at.isoformat() if last_run else None,
     }
+
+
+@router.get("/pipeline-runs")
+async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
+    from app.models.pipeline_run import PipelineRun
+    result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(10))
+    runs = result.scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "saas_id": str(r.saas_id),
+            "status": r.status,
+            "candidates": r.candidates,
+            "leads_found": r.leads_found,
+            "errors": r.errors,
+            "duration_seconds": r.duration_seconds,
+            "error_message": r.error_message,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in runs
+    ]
