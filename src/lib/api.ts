@@ -47,7 +47,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    register: (data: { url: string; name?: string; config?: string }) =>
+    register: (data: { url: string; name?: string; config?: string; user_id?: string }) =>
       request<{ id: string; url: string; name: string; description: string; tone: string; competitors: string; pain_points: string; config?: string; status: string }>("/saas/register", {
         method: "POST",
         body: JSON.stringify(data),

@@ -31,6 +31,7 @@ class SaaSInput(BaseModel):
     url: str
     name: Optional[str] = None
     config: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 class SaaSOut(BaseModel):

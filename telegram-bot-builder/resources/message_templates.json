@@ -1,0 +1,7 @@
+{
+    "welcome": "¡Hola {name}! 👋 Bienvenido a **TurnoFácil.io**. Tu asistente inteligente para turnos de peluquería y estética.",
+    "select_service": "Por favor, elegí el servicio que buscás hoy:",
+    "confirm_appointment": "¡Genial! Tu turno para **{service}** el día **{date}** a las **{time}** ha sido reservado con éxito. ✅",
+    "reminder": "⏰ Recordatorio: Tenés un turno mañana a las **{time}** en **{business_name}**. ¡Te esperamos!",
+    "error": "Ups, hubo un pequeño error. 😅 Por favor intentá de nuevo o contactanos directamente."
+}

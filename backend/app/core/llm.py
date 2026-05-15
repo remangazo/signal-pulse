@@ -15,10 +15,10 @@ PROVIDER_CONFIGS = {
 
 
 def _build_client():
-    provider = settings.llm_provider or "gemini"
+    provider = settings.llm_provider or "groq"
     cfg = PROVIDER_CONFIGS.get(provider, {})
     base_url = settings.llm_base_url or cfg.get("base_url", "")
-    api_key = settings.llm_api_key or settings.openai_api_key or settings.gemini_api_key
+    api_key = settings.llm_api_key or settings.groq_api_key or settings.openai_api_key or settings.gemini_api_key
     model = settings.llm_model or cfg.get("default_model", "")
     return provider, base_url, api_key, model
 

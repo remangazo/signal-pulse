@@ -4,6 +4,7 @@ and stores results in the database with monitoring.
 """
 import json
 import time
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.saas import SaaS
@@ -14,12 +15,16 @@ from app.agents.auditor import run_pipeline
 from app.agents.ghostwriter import draft_reply
 from app.notifications.telegram import notify_new_lead, notify_pipeline_complete
 
+logger = logging.getLogger(__name__)
+
 
 async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
     start = time.time()
+    logger.info(f"Starting pipeline for SaaS {saas_id}")
     result = await db.execute(select(SaaS).where(SaaS.id == saas_id))
     saas = result.scalar_one_or_none()
     if not saas:
+        logger.error(f"SaaS {saas_id} not found")
         return {"status": "error", "message": "SaaS not found"}
 
     run = PipelineRun(saas_id=saas_id, status="running")
@@ -27,9 +32,22 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
     await db.commit()
 
     try:
+        config = json.loads(saas.config or "{}")
+        icp_ideal = config.get("icp_ideal", "")
+        icp_not_ideal = config.get("icp_not_ideal", "")
+        icp_signals = config.get("icp_signals", "")
+        icp_exclude = config.get("icp_exclude", "")
+        icp_geo = config.get("icp_geo", "")
+        icp_budget = config.get("icp_budget", "")
+
         pain_points = json.loads(saas.pain_points) if saas.pain_points else []
         competitors = json.loads(saas.competitors) if saas.competitors else []
         search_terms = pain_points + competitors + [saas.name]
+
+        if icp_ideal:
+            search_terms.append(icp_ideal)
+        if icp_signals:
+            search_terms.extend(icp_signals.split(","))
 
         user_chat_id = None
         if saas.user_id:
@@ -37,8 +55,11 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
             user_result = await db.execute(select(User).where(User.id == saas.user_id))
             user = user_result.scalar_one_or_none()
             user_chat_id = user.telegram_chat_id if user else None
+            logger.info(f"User chat_id: {user_chat_id}")
 
+        logger.info(f"Searching with terms: {search_terms}")
         raw_leads = await gather_raw_leads(search_terms)
+        logger.info(f"Found {len(raw_leads)} raw leads")
 
         saas_info = {
             "name": saas.name,
@@ -46,6 +67,12 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
             "tone": saas.tone,
             "competitors": competitors,
             "pain_points": pain_points,
+            "icp_ideal": icp_ideal,
+            "icp_not_ideal": icp_not_ideal,
+            "icp_signals": icp_signals,
+            "icp_exclude": icp_exclude,
+            "icp_geo": icp_geo,
+            "icp_budget": icp_budget,
         }
 
         leads_created = 0
@@ -87,6 +114,7 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
                 )
                 db.add(lead)
                 leads_created += 1
+                logger.info(f"Created lead: {raw.get('author', 'unknown')} from {raw.get('source', 'unknown')}")
 
                 await notify_new_lead(
                     saas_name=saas.name,
@@ -95,8 +123,9 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
                     summary=audio_result.get("suggested_approach", ""),
                     chat_id=user_chat_id,
                 )
-            except Exception:
+            except Exception as e:
                 errors += 1
+                logger.error(f"Error processing lead: {e}")
                 continue
 
         duration = round(time.time() - start, 1)
@@ -111,6 +140,7 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         if leads_created > 0:
             await notify_pipeline_complete(saas_name=saas.name, total_leads=leads_created, chat_id=user_chat_id)
 
+        logger.info(f"Pipeline complete: {leads_created} leads, {errors} errors, {duration}s")
         return {"status": "success", "leads_found": leads_created, "errors": errors, "total_candidates": len(raw_leads), "duration_seconds": duration}
 
     except Exception as e:
@@ -118,4 +148,5 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         run.error_message = str(e)
         run.duration_seconds = round(time.time() - start, 1)
         await db.commit()
+        logger.error(f"Pipeline failed: {e}")
         return {"status": "error", "message": str(e)}

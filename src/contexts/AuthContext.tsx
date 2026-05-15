@@ -35,16 +35,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.auth.login({ email, password })
     const token = res.access_token
     localStorage.setItem("token", token)
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]))
+      if (payload.sub) localStorage.setItem("userId", payload.sub)
+    } catch {}
     setToken(token)
   }, [])
 
   const register = useCallback(async (email: string, password: string, name: string, telegramChatId?: string) => {
     const user = await api.auth.register({ email, password, name, telegram_chat_id: telegramChatId || undefined })
+    localStorage.setItem("userId", user.id)
     await login(email, password)
   }, [login])
 
   const logout = useCallback(() => {
     localStorage.removeItem("token")
+    localStorage.removeItem("userId")
     setToken(null)
     setUser(null)
   }, [])

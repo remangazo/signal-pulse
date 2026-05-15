@@ -16,8 +16,16 @@ router = APIRouter(prefix="/saas", tags=["saas"])
 
 
 async def _run_pipeline_background(saas_id: str):
-    async with async_session() as db:
-        await run_full_pipeline(saas_id, db)
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info(f"Starting background pipeline for {saas_id}")
+        async with async_session() as db:
+            result = await run_full_pipeline(saas_id, db)
+            logger.info(f"Pipeline result: {result}")
+    except Exception as e:
+        import traceback
+        logging.getLogger(__name__).error(f"Background pipeline failed: {e}\n{traceback.format_exc()}")
 
 
 @router.post("/quick-scan")
@@ -30,7 +38,7 @@ async def quick_scan(payload: SaaSInput):
 async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
         saas = SaaS(
-            user_id=None,
+            user_id=payload.user_id,
             url=payload.url,
             name=payload.name or payload.url,
             config=payload.config,
@@ -58,6 +66,9 @@ async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: Asy
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print(f"Register SaaS error: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"SaaS analysis failed: {str(e)}")
 
 
