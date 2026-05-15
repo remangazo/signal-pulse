@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [saasList, setSaasList] = useState<SaaS[]>([])
   const [leadsMap, setLeadsMap] = useState<Record<string, Lead[]>>({})
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<any>(null)
   const [selectedSaas, setSelectedSaas] = useState<string | "all">("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [scoreMin, setScoreMin] = useState(0)
@@ -22,8 +23,9 @@ export default function DashboardPage() {
     if (!token) return
     ;(async () => {
       try {
-        const list = await api.saas.list()
+        const [list, overview] = await Promise.all([api.saas.list(), api.stats.overview()])
         setSaasList(list)
+        setStats(overview)
         const map: Record<string, Lead[]> = {}
         for (const s of list) {
           const leads = await api.leads.list(s.id)
@@ -57,7 +59,7 @@ export default function DashboardPage() {
     })
   }, [allLeads, selectedSaas, statusFilter, scoreMin])
 
-  const stats = useMemo(() => ({
+  const localStats = useMemo(() => ({
     total: allLeads.length,
     high: allLeads.filter((l) => (l.intent_score || 0) >= 7).length,
     medium: allLeads.filter((l) => (l.intent_score || 0) >= 4 && (l.intent_score || 0) < 7).length,
@@ -107,10 +109,10 @@ export default function DashboardPage() {
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "Total Leads", value: stats.total, color: "text-foreground" },
-                { label: "Alto interés (7+)", value: stats.high, color: "text-green-400" },
-                { label: "Medio (4-6)", value: stats.medium, color: "text-yellow-400" },
-                { label: "Nuevos", value: stats.new, color: "text-signal" },
+                { label: "Total Leads", value: localStats.total, color: "text-foreground" },
+                { label: "Alto interés (7+)", value: localStats.high, color: "text-green-400" },
+                { label: "Pipeline Runs", value: stats?.pipeline_runs || 0, color: "text-signal" },
+                { label: "Score Promedio", value: stats?.avg_intent_score || "-", color: "text-teal" },
               ].map((s) => (
                 <div key={s.label} className="bg-deep-card rounded-xl border border-border p-4">
                   <p className="text-sm text-muted">{s.label}</p>
@@ -118,6 +120,12 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+
+            {stats?.last_pipeline_run && (
+              <p className="text-xs text-muted text-right">
+                Último pipeline: {new Date(stats.last_pipeline_run).toLocaleString()}
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-3">
               <select

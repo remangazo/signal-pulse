@@ -107,3 +107,25 @@ async def scan_for_leads(saas_id: str, db: AsyncSession = Depends(get_db)):
         leads_found=leads_created,
         message=f"Found {leads_created} qualified leads from {len(raw_leads)} raw mentions",
     )
+
+
+@router.get("/stats/overview")
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    from app.models.pipeline_run import PipelineRun
+    from sqlalchemy import func
+
+    total_saas = (await db.execute(select(func.count(SaaS.id)))).scalar()
+    total_leads = (await db.execute(select(func.count(Lead.id)))).scalar()
+    new_leads = (await db.execute(select(func.count(Lead.id)).where(Lead.status == "new"))).scalar()
+    pipeline_runs = (await db.execute(select(func.count(PipelineRun.id)))).scalar()
+    avg_score = (await db.execute(select(func.avg(Lead.intent_score)))).scalar()
+    last_run = (await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(1))).scalar_one_or_none()
+
+    return {
+        "total_saas": total_saas,
+        "total_leads": total_leads,
+        "new_leads": new_leads,
+        "pipeline_runs": pipeline_runs,
+        "avg_intent_score": round(float(avg_score or 0), 1),
+        "last_pipeline_run": last_run.created_at.isoformat() if last_run else None,
+    }
