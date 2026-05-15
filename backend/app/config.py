@@ -18,7 +18,9 @@ class Settings(BaseSettings):
 
     apify_api_key: str = ""
     firecrawl_api_key: str = ""
-    resend_api_key: str = ""
+
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
