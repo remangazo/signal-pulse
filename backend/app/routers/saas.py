@@ -114,6 +114,21 @@ async def scan_for_leads(saas_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.get("/")
+async def list_saas(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SaaS).order_by(SaaS.created_at.desc()))
+    return result.scalars().all()
+
+
+@router.get("/{saas_id}")
+async def get_saas(saas_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SaaS).where(SaaS.id == saas_id))
+    saas = result.scalar_one_or_none()
+    if not saas:
+        raise HTTPException(status_code=404, detail="SaaS not found")
+    return saas
+
+
 @router.get("/stats/overview")
 async def get_stats(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
