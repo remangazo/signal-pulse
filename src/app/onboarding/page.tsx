@@ -7,7 +7,7 @@ import { OnboardingRadar } from "@/components/sections/onboarding-radar"
 import { Pencil, Plus, X } from "lucide-react"
 import type { Phase } from "@/components/sections/onboarding-radar"
 
-type Step = 1 | 2 | 3 | 4 | 5
+type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(1)
@@ -18,6 +18,7 @@ export default function OnboardingPage() {
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([])
   const [customCompetitor, setCustomCompetitor] = useState("")
   const [analysis, setAnalysis] = useState<any>(null)
+  const [icp, setIcp] = useState({ ideal: "", notIdeal: "", signals: "", exclude: "", geo: "", budget: "" })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState<Phase>("idle")
@@ -32,7 +33,7 @@ export default function OnboardingPage() {
     return () => clearInterval(interval)
   }, [loading])
 
-  const steps = [1, 2, 3, 4, 5] as Step[]
+  const steps = [1, 2, 3, 4, 5, 6] as Step[]
 
   async function handleQuickScan() {
     if (!url) { setError("Ingresa una URL"); return }
@@ -92,7 +93,7 @@ export default function OnboardingPage() {
               }`}>
                 {step > s ? "✓" : s}
               </div>
-              {s < 5 && <div className={`w-10 h-0.5 transition-all duration-500 ${step > s ? "bg-signal" : "bg-border"}`} />}
+              {s < 6 && <div className={`w-8 h-0.5 transition-all duration-500 ${step > s ? "bg-signal" : "bg-border"}`} />}
             </div>
           ))}
         </div>
@@ -246,6 +247,67 @@ export default function OnboardingPage() {
             )}
 
             {step === 5 && (
+              <div className="space-y-5 animate-[fade-in-up_0.4s_ease-out]">
+                <div className="text-center">
+                  <h2 className="text-xl font-bold text-foreground">Define tu cliente ideal</h2>
+                  <p className="text-muted text-sm mt-1">Esto hará que los leads sean mucho más precisos</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      Cliente Ideal <span className="text-muted font-normal">(quién es tu mejor cliente?)</span>
+                    </label>
+                    <textarea value={icp.ideal} onChange={(e) => setIcp({ ...icp, ideal: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-deep border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-signal resize-none"
+                      rows={2} placeholder={analysis?.icp_description || "Ej: CMOs de startups B2B con equipos de 5-20 personas"} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      Qué NO es <span className="text-muted font-normal">(opcional — ayuda a filtrar ruido)</span>
+                    </label>
+                    <textarea value={icp.notIdeal} onChange={(e) => setIcp({ ...icp, notIdeal: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-deep border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-signal resize-none"
+                      rows={2} placeholder="Ej: Estudiantes, agencias very small, enterprise sin presupuesto" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      Señales de compra <span className="text-muted font-normal">(qué frases indican que necesitan tu producto?)</span>
+                    </label>
+                    <textarea value={icp.signals} onChange={(e) => setIcp({ ...icp, signals: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-deep border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-signal resize-none"
+                      rows={2} placeholder='Ej: "buscando alternativa", "demasiado caro", "necesito automatizar", "no escala"' />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      Palabras a ignorar <span className="text-muted font-normal">(opcional — reduce falsos positivos)</span>
+                    </label>
+                    <textarea value={icp.exclude} onChange={(e) => setIcp({ ...icp, exclude: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-deep border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-signal resize-none"
+                      rows={1} placeholder='Ej: "free", "crack", "open source" (separado por comas)' />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-foreground mb-1">Geografía</label>
+                      <input value={icp.geo} onChange={(e) => setIcp({ ...icp, geo: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-deep border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-signal"
+                        placeholder="US, EU, LATAM..." />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-foreground mb-1">Presupuesto mín.</label>
+                      <input value={icp.budget} onChange={(e) => setIcp({ ...icp, budget: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-deep border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-signal"
+                        placeholder="$50-500/mes" />
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setStep(6)}
+                  className="w-full py-3 rounded-lg bg-signal text-deep font-bold hover:brightness-110 transition-all active:scale-[0.98]">
+                  Finalizar →
+                </button>
+              </div>
+            )}
+
+            {step === 6 && (
               <div className="space-y-6 text-center animate-[fade-in-up_0.5s_ease-out]">
                 <div className="text-5xl animate-bounce">🎉</div>
                 <h2 className="text-xl font-bold text-foreground">¡SignalPulse está trabajando!</h2>
@@ -253,8 +315,11 @@ export default function OnboardingPage() {
                 <div className="bg-deep rounded-lg p-4 text-left text-xs text-muted space-y-2 border border-border">
                   <p className="text-foreground font-medium text-sm">Resumen:</p>
                   <p>📌 Producto: <span className="text-foreground">{scan.name}</span></p>
-                  <p>🎯 Description: <span className="text-foreground">{scan.description}</span></p>
+                  <p>🎯 Descripción: <span className="text-foreground">{scan.description}</span></p>
                   <p>👥 Competidores: <span className="text-foreground">{selectedCompetitors.join(", ") || "N/A"}</span></p>
+                  <p>🎯 ICP: <span className="text-foreground">{icp.ideal || scan.audience}</span></p>
+                  {icp.notIdeal && <p>🚫 Excluir: <span className="text-foreground">{icp.notIdeal}</span></p>}
+                  {icp.signals && <p>📡 Señales: <span className="text-foreground">{icp.signals}</span></p>}
                 </div>
                 <button onClick={() => router.push("/dashboard")}
                   className="w-full py-3 rounded-lg bg-signal text-deep font-bold hover:brightness-110 transition-all active:scale-[0.98]">
@@ -289,7 +354,7 @@ export default function OnboardingPage() {
                 </ul>
               </div>
             )}
-            {(step === 3 || step === 4 || step === 5) && <OnboardingRadar phase={phase} />}
+            {(step >= 3) && <OnboardingRadar phase={phase} />}
           </div>
         </div>
       </div>
