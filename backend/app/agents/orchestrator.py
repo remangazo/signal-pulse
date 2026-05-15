@@ -115,18 +115,21 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
                 if audio_result.get("classification") == "NOISE":
                     continue
 
-                try:
-                    ghost = await draft_reply(
-                        lead_content=raw["content"],
-                        saas_name=saas.name or "",
-                        saas_description=saas.description or "",
-                        tone=saas.tone or "professional",
-                        competitor_mentioned=audio_result.get("competitor_mentioned"),
-                        pain_points=audio_result.get("pain_points"),
-                    )
-                except Exception as e:
-                    logger.warning(f"Ghostwriter LLM failed, using fallback reply: {e}")
-                    ghost = {"reply": "", "angle": "review"}
+                if uses_llm:
+                    try:
+                        ghost = await draft_reply(
+                            lead_content=raw["content"],
+                            saas_name=saas.name or "",
+                            saas_description=saas.description or "",
+                            tone=saas.tone or "professional",
+                            competitor_mentioned=audio_result.get("competitor_mentioned"),
+                            pain_points=audio_result.get("pain_points"),
+                        )
+                    except Exception as e:
+                        logger.warning(f"Ghostwriter LLM failed, using fallback reply: {e}")
+                        ghost = {"reply": "", "angle": "review"}
+                else:
+                    ghost = {"reply": "", "angle": "layer1"}
 
                 lead = Lead(
                     saas_id=saas.id,
