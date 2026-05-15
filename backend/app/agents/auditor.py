@@ -7,7 +7,7 @@ Auditor Agent — receives raw leads from Sentinel and:
 """
 import json
 from typing import Optional
-from app.core.llm import call_gemini, call_gemini_json
+from app.core.llm import call_llm, call_llm_json
 
 LEAD_BOOSTERS = [
     "alternativa", "reemplazar", "cambiar de",
@@ -63,7 +63,7 @@ Post: "{content}"
 
 Classify this post as LEAD, NOISE, or UNCERTAIN."""
 
-    result = await call_gemini_json(prompt, system_instruction=LAYER2_SYSTEM)
+    result = await call_llm_json(prompt, system_instruction=LAYER2_SYSTEM)
     classification = result.get("classification", "UNCERTAIN")
     confidence = result.get("confidence", 0.5)
     return classification, confidence
@@ -86,7 +86,7 @@ Post: "{content}"
 
 Score and analyze this lead deeply."""
 
-    result = await call_gemini_json(prompt, system_instruction=LAYER3_SYSTEM)
+    result = await call_llm_json(prompt, system_instruction=LAYER3_SYSTEM)
     return result
 
 

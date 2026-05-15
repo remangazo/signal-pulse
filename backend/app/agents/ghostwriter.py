@@ -4,7 +4,7 @@ The draft references the specific context of the lead (the signal) and matches
 the SaaS brand's tone of voice.
 """
 import json
-from app.core.llm import call_gemini
+from app.core.llm import call_llm
 
 SYSTEM_PROMPT = """You are a Sales Copywriter AI. Your job is to write ultra-personalized first-contact messages for sales leads.
 
@@ -44,7 +44,7 @@ Our tone: {tone}
 
 Write a response that feels personal and helpful, not salesy."""
 
-    result = await call_gemini(prompt, system_instruction=SYSTEM_PROMPT, temperature=0.7)
+    result = await call_llm(prompt, system_instruction=SYSTEM_PROMPT, temperature=0.7)
 
     try:
         return json.loads(result)

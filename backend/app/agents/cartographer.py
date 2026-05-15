@@ -5,7 +5,7 @@ Cartographer Agent — analyzes a SaaS landing page and extracts:
 - What keywords/triggers to search for?
 - What tone of voice to use in replies?
 """
-from app.core.llm import call_gemini_json
+from app.core.llm import call_llm_json
 
 
 SYSTEM_PROMPT = """You are a Product Analyst AI. Your job is to analyze a SaaS product URL and extract structured information about it.
@@ -26,5 +26,5 @@ URL: {url}
 
 Extract all structured information about this product."""
 
-    result = await call_gemini_json(prompt, system_instruction=SYSTEM_PROMPT)
+    result = await call_llm_json(prompt, system_instruction=SYSTEM_PROMPT)
     return result
