@@ -26,6 +26,8 @@ export const metadata: Metadata = {
   },
 }
 
+import { Providers } from "@/components/providers"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${instrument.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-deep text-foreground">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

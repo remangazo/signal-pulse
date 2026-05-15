@@ -4,6 +4,7 @@
   --font-sans: var(--font-instrument-sans);
 
   --color-deep: oklch(13% 0.012 260);
+  --color-deep-card: oklch(17% 0.012 260);
   --color-surface: oklch(17% 0.012 260);
   --color-surface-hover: oklch(21% 0.012 260);
   --color-border: oklch(25% 0.01 260);

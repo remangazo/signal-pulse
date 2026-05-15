@@ -1,9 +1,11 @@
 "use client"
 
 import { Menu, X } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 
 const navLinks = [
   { label: "How it works", href: "#how-it-works" },
@@ -14,6 +16,7 @@ const navLinks = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { token, logout } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40)
@@ -33,14 +36,14 @@ export function Navbar() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <a href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 rounded-lg bg-signal/20 border border-signal/30 flex items-center justify-center">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(68% 0.18 75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                 </svg>
               </div>
               <span className="text-lg font-semibold tracking-tight">SignalPulse</span>
-            </a>
+            </Link>
 
             <div className="hidden md:flex items-center gap-1">
               {navLinks.map((link) => (
@@ -55,8 +58,23 @@ export function Navbar() {
             </div>
 
             <div className="hidden md:flex items-center gap-3">
-              <Button variant="secondary" size="sm">Sign In</Button>
-              <Button variant="primary" size="sm">Get Started</Button>
+              {token ? (
+                <>
+                  <Link href="/dashboard" className="text-sm text-muted hover:text-foreground transition-colors px-3 py-2">
+                    Dashboard
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={logout}>Log out</Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/login">
+                    <Button variant="secondary" size="sm">Sign In</Button>
+                  </Link>
+                  <Link href="/auth/register">
+                    <Button variant="primary" size="sm">Get Started</Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             <button
@@ -85,8 +103,23 @@ export function Navbar() {
                 </a>
               ))}
               <hr className="my-3 border-border" />
-              <Button variant="secondary" size="md" className="w-full">Sign In</Button>
-              <Button variant="primary" size="md" className="w-full">Get Started</Button>
+              {token ? (
+                <>
+                  <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="px-4 py-3 text-muted hover:text-foreground rounded-md hover:bg-surface-hover transition-colors">
+                    Dashboard
+                  </Link>
+                  <Button variant="ghost" size="md" className="w-full" onClick={() => { logout(); setMobileOpen(false) }}>Log out</Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/login" onClick={() => setMobileOpen(false)} className="w-full">
+                    <Button variant="secondary" size="md" className="w-full">Sign In</Button>
+                  </Link>
+                  <Link href="/auth/register" onClick={() => setMobileOpen(false)} className="w-full">
+                    <Button variant="primary" size="md" className="w-full">Get Started</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
