@@ -29,6 +29,7 @@ async def init_db():
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
                 "ALTER TABLE pipeline_runs ADD COLUMN IF NOT EXISTS error_message TEXT",
                 "ALTER TABLE saas ALTER COLUMN user_id DROP NOT NULL",
+            "ALTER TABLE saas ADD COLUMN IF NOT EXISTS config TEXT",
             ]:
                 try:
                     await conn.execute(text(stmt))

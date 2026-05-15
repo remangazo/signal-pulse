@@ -27,6 +27,7 @@ async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: Asy
             user_id=None,
             url=payload.url,
             name=payload.name or payload.url,
+            config=payload.config,
         )
 
         analysis = await analyze_saas(payload.url, payload.name)
@@ -34,6 +35,12 @@ async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: Asy
         saas.tone = analysis.get("tone", "professional")
         saas.competitors = json.dumps(analysis.get("competitors", []))
         saas.pain_points = json.dumps(analysis.get("pain_points", []))
+        try:
+            existing = json.loads(saas.config or "{}")
+            existing.update(analysis)
+            saas.config = json.dumps(existing)
+        except Exception:
+            pass
 
         db.add(saas)
         await db.commit()

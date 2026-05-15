@@ -30,6 +30,7 @@ class TokenOut(BaseModel):
 class SaaSInput(BaseModel):
     url: str
     name: Optional[str] = None
+    config: Optional[str] = None
 
 
 class SaaSOut(BaseModel):
