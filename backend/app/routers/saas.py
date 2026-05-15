@@ -180,8 +180,9 @@ async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
     result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(10))
     runs = result.scalars().all()
-    return [
-        {
+    out = []
+    for r in runs:
+        out.append({
             "id": str(r.id),
             "saas_id": str(r.saas_id),
             "status": r.status,
@@ -190,7 +191,6 @@ async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
             "errors": r.errors,
             "duration_seconds": r.duration_seconds,
             "error_message": r.error_message,
-            "created_at": r.created_at.isoformat(),
-        }
-        for r in runs
-    ]
+            "created_at": str(r.created_at),
+        })
+    return out
