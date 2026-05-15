@@ -11,22 +11,29 @@ settings = get_settings()
 
 async def search_reddit(search_terms: list[str], subreddits: list[str] | None = None) -> list[dict]:
     results = []
-    for term in search_terms:
+    seen = set()
+    for term in search_terms[:5]:
+        if len(results) >= 40:
+            break
         try:
             url = "https://www.reddit.com/search.json"
             params = {
                 "q": term,
                 "sort": "relevance",
                 "t": "week",
-                "limit": 15,
+                "limit": 10,
                 "type": "link",
             }
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(url, params=params, headers={"User-Agent": "SignalPulse/1.0"})
                 if resp.status_code == 200:
                     data = resp.json()
                     for post in data.get("data", {}).get("children", []):
                         d = post.get("data", {})
+                        post_id = d.get("id", "")
+                        if post_id in seen:
+                            continue
+                        seen.add(post_id)
                         results.append({
                             "source": "reddit",
                             "content": f"{d.get('title', '')}\n{d.get('selftext', '')}",
