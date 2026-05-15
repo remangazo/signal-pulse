@@ -26,30 +26,30 @@ def _build_client():
     return provider, base_url, api_key, model
 
 
-_llm_semaphore = asyncio.Semaphore(1)
-
-
-async def _rate_limited_call(func):
-    async with _llm_semaphore:
-        await asyncio.sleep(2)
-        for attempt in range(3):
-            try:
-                return await func()
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 429 and attempt < 2:
-                    wait = 20
-                    logger.warning(f"429, retry {attempt + 1}/3 in {wait}s")
-                    await asyncio.sleep(wait)
-                    continue
-                raise
-            except httpx.HTTPError as e:
-                if "429" in str(e) and attempt < 2:
-                    wait = 20
-                    logger.warning(f"429, retry {attempt + 1}/3 in {wait}s")
-                    await asyncio.sleep(wait)
-                    continue
-                raise
-        raise Exception("Max retries exceeded")
+async def _call_with_retry(func):
+    await asyncio.sleep(2)
+    for attempt in range(3):
+        try:
+            return await func()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < 2:
+                logger.warning(f"429, retry {attempt + 1}/3 in 15s")
+                await asyncio.sleep(15)
+                continue
+            raise
+        except httpx.TimeoutException:
+            if attempt < 2:
+                logger.warning(f"Timeout, retry {attempt + 1}/3")
+                await asyncio.sleep(5)
+                continue
+            raise
+        except httpx.HTTPError as e:
+            if "429" in str(e) and attempt < 2:
+                logger.warning(f"429, retry {attempt + 1}/3 in 15s")
+                await asyncio.sleep(15)
+                continue
+            raise
+    raise Exception("Max retries exceeded")
 
 
 async def call_llm(
@@ -91,7 +91,7 @@ async def call_llm(
             data = resp.json()
             return data["choices"][0]["message"]["content"]
 
-    return await _rate_limited_call(_do_call)
+    return await _call_with_retry(_do_call)
 
 
 async def call_llm_json(
@@ -133,7 +133,7 @@ async def call_llm_json(
             data = resp.json()
             return json.loads(data["choices"][0]["message"]["content"])
 
-    return await _rate_limited_call(_do_call)
+    return await _call_with_retry(_do_call)
 
 
 async def _call_gemini_native(prompt, system_instruction, model, temperature, max_tokens):
