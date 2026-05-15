@@ -23,20 +23,28 @@ def _verify_password(password: str, hashed: str) -> bool:
 
 @router.post("/register", response_model=UserOut)
 async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == payload.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    import traceback
+    try:
+        existing = await db.execute(select(User).where(User.email == payload.email))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-    user = User(
-        email=payload.email,
-        name=payload.name,
-        telegram_chat_id=payload.telegram_chat_id,
-        password_hash=_hash_password(payload.password) if payload.password else None,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
+        user = User(
+            email=payload.email,
+            name=payload.name,
+            telegram_chat_id=payload.telegram_chat_id,
+            password_hash=_hash_password(payload.password) if payload.password else None,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Register error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/login", response_model=TokenOut)

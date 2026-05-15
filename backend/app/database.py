@@ -22,7 +22,18 @@ async def get_db():
 
 
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)"))
-        await conn.execute(text("ALTER TABLE pipeline_runs ADD COLUMN IF NOT EXISTS error_message TEXT"))
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            for stmt in [
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
+                "ALTER TABLE pipeline_runs ADD COLUMN IF NOT EXISTS error_message TEXT",
+            ]:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception as e:
+                    print(f"Migration warning: {e}")
+        print("DB init OK")
+    except Exception as e:
+        print(f"DB init failed: {e}")
+        raise
