@@ -6,8 +6,11 @@ Auditor Agent — receives raw leads from Sentinel and:
 4. Assigns intent_score (1-10) and pain_points
 """
 import json
+import logging
 from typing import Optional
 from app.core.llm import call_llm, call_llm_json
+
+logger = logging.getLogger(__name__)
 
 LEAD_BOOSTERS = [
     "alternativa", "reemplazar", "cambiar de",
@@ -96,15 +99,33 @@ async def run_pipeline(content: str, saas_description: str, saas_info: dict) -> 
     if classification == "noise":
         return {"intent_score": 0.1, "layer": 1, "classification": "NOISE", "pain_points": None, "competitor_mentioned": None}
 
-    classification, confidence = await layer2_fast_classify(content, saas_description)
+    try:
+        classification, confidence = await layer2_fast_classify(content, saas_description)
+    except Exception as e:
+        logger.warning(f"Layer2 LLM failed, using layer1 fallback: {e}")
+        confidence = score
+        if classification == "uncertain" and score > 0:
+            classification = "LEAD"
+        else:
+            classification = "UNCERTAIN"
 
     if classification == "NOISE" and confidence > 0.8:
         return {"intent_score": 0.1, "layer": 2, "classification": "NOISE", "pain_points": None, "competitor_mentioned": None}
 
-    deep = await layer3_deep_score(content, saas_info)
+    try:
+        deep = await layer3_deep_score(content, saas_info)
+    except Exception as e:
+        logger.warning(f"Layer3 LLM failed, using fallback scoring: {e}")
+        deep = {
+            "intent_score": round(score * 10, 1),
+            "pain_points": [pain for pain in saas_info.get("pain_points", []) if pain.lower() in content.lower()],
+            "competitor_mentioned": None,
+            "switch_readiness": "medium" if score > 0.3 else "low",
+            "suggested_approach": f"Engage based on interest level: {classification}",
+        }
 
     return {
-        "intent_score": deep.get("intent_score", 5),
+        "intent_score": deep.get("intent_score", round(score * 10, 1)),
         "layer": 3,
         "classification": classification,
         "pain_points": deep.get("pain_points"),

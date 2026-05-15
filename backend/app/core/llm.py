@@ -8,6 +8,9 @@ from app.config import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+_last_call_time = 0
+_llm_lock = asyncio.Lock()
+
 PROVIDER_CONFIGS = {
     "openai":      {"base_url": "https://api.openai.com/v1",           "default_model": "gpt-4o-mini"},
     "groq":        {"base_url": "https://api.groq.com/openai/v1",      "default_model": "llama-3.3-70b-versatile"},
@@ -26,20 +29,33 @@ def _build_client():
     return provider, base_url, api_key, model
 
 
-async def _retry_with_backoff(func, max_retries=2):
+async def _rate_limit_delay():
+    global _last_call_time
+    async with _llm_lock:
+        now = asyncio.get_event_loop().time()
+        elapsed = now - _last_call_time
+        if elapsed < 3.0:
+            wait = 3.0 - elapsed
+            logger.debug(f"Rate limit delay: waiting {wait:.1f}s")
+            await asyncio.sleep(wait)
+        _last_call_time = asyncio.get_event_loop().time()
+
+
+async def _retry_with_backoff(func, max_retries=3):
     for attempt in range(max_retries):
         try:
+            await _rate_limit_delay()
             return await func()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429 and attempt < max_retries - 1:
-                wait = 15
+                wait = 30
                 logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
                 await asyncio.sleep(wait)
                 continue
             raise
         except httpx.HTTPError as e:
             if "429" in str(e) and attempt < max_retries - 1:
-                wait = 15
+                wait = 30
                 logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
                 await asyncio.sleep(wait)
                 continue

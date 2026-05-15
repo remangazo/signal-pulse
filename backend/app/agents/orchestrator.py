@@ -86,30 +86,47 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
             scored_leads.append((score, classification, raw))
 
         scored_leads.sort(key=lambda x: x[0], reverse=True)
-        max_leads_to_process = min(3, len(scored_leads))
-        logger.info(f"Processing top {max_leads_to_process} leads out of {len(raw_leads)}")
+        max_leads_to_process = min(10, len(scored_leads))
+        logger.info(f"Processing top {max_leads_to_process} leads out of {len(raw_leads)} (top 3 with LLM, rest with layer1 only)")
 
-        for score, classification, raw in scored_leads[:max_leads_to_process]:
+        for i, (score, classification, raw) in enumerate(scored_leads[:max_leads_to_process]):
             try:
-                await asyncio.sleep(15)
+                uses_llm = i < 3
+                if uses_llm:
+                    await asyncio.sleep(3)
 
-                audio_result = await run_pipeline(
-                    content=raw["content"],
-                    saas_description=saas.description or "",
-                    saas_info=saas_info,
-                )
+                if uses_llm:
+                    audio_result = await run_pipeline(
+                        content=raw["content"],
+                        saas_description=saas.description or "",
+                        saas_info=saas_info,
+                    )
+                else:
+                    audio_result = {
+                        "intent_score": round(score * 10, 1),
+                        "layer": 1,
+                        "classification": "LEAD" if score > 0.15 else ("UNCERTAIN" if score > 0 else "NOISE"),
+                        "pain_points": None,
+                        "competitor_mentioned": None,
+                        "switch_readiness": "medium" if score > 0.3 else "low",
+                        "suggested_approach": f"Potential lead - score: {score}",
+                    }
 
                 if audio_result.get("classification") == "NOISE":
                     continue
 
-                ghost = await draft_reply(
-                    lead_content=raw["content"],
-                    saas_name=saas.name or "",
-                    saas_description=saas.description or "",
-                    tone=saas.tone or "professional",
-                    competitor_mentioned=audio_result.get("competitor_mentioned"),
-                    pain_points=audio_result.get("pain_points"),
-                )
+                try:
+                    ghost = await draft_reply(
+                        lead_content=raw["content"],
+                        saas_name=saas.name or "",
+                        saas_description=saas.description or "",
+                        tone=saas.tone or "professional",
+                        competitor_mentioned=audio_result.get("competitor_mentioned"),
+                        pain_points=audio_result.get("pain_points"),
+                    )
+                except Exception as e:
+                    logger.warning(f"Ghostwriter LLM failed, using fallback reply: {e}")
+                    ghost = {"reply": "", "angle": "review"}
 
                 lead = Lead(
                     saas_id=saas.id,
