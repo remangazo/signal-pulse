@@ -26,20 +26,20 @@ def _build_client():
     return provider, base_url, api_key, model
 
 
-async def _retry_with_backoff(func, max_retries=3):
+async def _retry_with_backoff(func, max_retries=5):
     for attempt in range(max_retries):
         try:
             return await func()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429 and attempt < max_retries - 1:
-                wait = min(2 ** attempt * 5, 30)
+                wait = min(2 ** attempt * 10, 60)
                 logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
                 await asyncio.sleep(wait)
                 continue
             raise
         except httpx.HTTPError as e:
             if "429" in str(e) and attempt < max_retries - 1:
-                wait = min(2 ** attempt * 5, 30)
+                wait = min(2 ** attempt * 10, 60)
                 logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
                 await asyncio.sleep(wait)
                 continue
