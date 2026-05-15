@@ -1,12 +1,11 @@
 """
 Cartographer Agent — deep multi-step SaaS analysis:
-1. Crawl the landing page
-2. Extract raw text content
-3. Multi-perspective LLM analysis
-4. Return structured competitive intelligence
+1. Firecrawl deep crawl of the website
+2. Multi-perspective LLM analysis
+3. Return structured competitive intelligence
 """
-import httpx
-from app.core.llm import call_llm, call_llm_json
+from app.core.llm import call_llm_json
+from app.core.firecrawl import scrape, crawl
 
 
 SYSTEM_PROMPT_DEEP = """You are a Senior Product & Market Analyst AI. Analyze this SaaS product in depth.
@@ -33,8 +32,8 @@ Return JSON with ALL these fields:
 
 
 async def analyze_saas(url: str, existing_description: str | None = None) -> dict:
-    page_text = await _crawl_page(url)
-    truncated = page_text[:6000] if page_text else ""
+    page_text = await _deep_crawl(url)
+    truncated = page_text[:8000] if page_text else ""
 
     step1 = await _step_initial_scan(url, truncated, existing_description)
     step2 = await _step_deep_analysis(url, truncated, step1)
@@ -42,20 +41,16 @@ async def analyze_saas(url: str, existing_description: str | None = None) -> dic
     return step2
 
 
-async def _crawl_page(url: str) -> str | None:
-    try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as c:
-            resp = await c.get(url, headers={"User-Agent": "SignalPulseBot/1.0"})
-            if resp.status_code == 200:
-                import re
-                text = resp.text
-                text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL)
-                text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
-                text = re.sub(r'<[^>]+>', ' ', text)
-                text = re.sub(r'\s+', ' ', text).strip()
-                return text
-    except Exception:
-        return None
+async def _deep_crawl(url: str) -> str | None:
+    result = await scrape(url, formats=["markdown"])
+    if result:
+        return result.get("markdown", "")[:8000]
+
+    pages = await crawl(url, max_pages=5)
+    if pages:
+        combined = "\n\n".join(p.get("markdown", "") for p in pages if p.get("markdown"))
+        return combined[:8000]
+
     return None
 
 
@@ -69,9 +64,11 @@ Page content:
 
 {f'Additional context: {existing}' if existing else ''}
 
-Extract the product name, one-sentence description, likely target audience, and initial competitor guesses."""
+Extract: name, one-sentence description, target audience, initial competitor guesses."""
 
-    return await call_llm_json(prompt, system_instruction="You are a fast product scanner. Return JSON with: name, initial_description, target_audience, guessed_competitors (list), initial_tone.", temperature=0.2)
+    return await call_llm_json(prompt,
+        system_instruction="You are a fast product scanner. Return JSON with: name, initial_description, target_audience, guessed_competitors (list), initial_tone.",
+        temperature=0.2)
 
 
 async def _step_deep_analysis(url: str, page_text: str, initial: dict) -> dict:
@@ -80,20 +77,11 @@ async def _step_deep_analysis(url: str, page_text: str, initial: dict) -> dict:
 URL: {url}
 
 Page content:
-{page_text[:5000] if page_text else "No page content available."}
+{page_text[:6000] if page_text else "No page content available."}
 
 Initial scan results:
 {initial}
 
-Now conduct a thorough analysis. Think like a top-tier product analyst. Consider:
-1. What exact pain points does this solve? Be specific.
-2. Who is the exact ideal customer profile?
-3. What keywords would someone use when searching for this?
-4. Who are the real competitors?
-5. What is their pricing psychology?
-6. What objections do buyers have?
-7. What content would attract their audience?
+Conduct a thorough analysis. Think like a top-tier product analyst. Return ALL fields from the system prompt."""
 
-Return ALL fields specified in the system prompt."""
-
-    return await call_llm_json(prompt, system_instruction=SYSTEM_PROMPT_DEEP, temperature=0.2, model="llama-3.3-70b-versatile")
+    return await call_llm_json(prompt, system_instruction=SYSTEM_PROMPT_DEEP, temperature=0.2)
