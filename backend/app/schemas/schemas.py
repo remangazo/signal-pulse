@@ -34,7 +34,7 @@ class SaaSInput(BaseModel):
 
 class SaaSOut(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
+    user_id: Optional[uuid.UUID] = None
     url: str
     name: Optional[str]
     description: Optional[str]
