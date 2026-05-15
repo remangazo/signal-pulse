@@ -39,10 +39,12 @@ export function OnboardingRadar({ phase }: { phase: Phase }) {
   useEffect(() => {
     const dots = PHASE_DOTS[phase] || []
     setActiveDots([])
+    if (dots.length === 0) return
     let i = 0
     const interval = setInterval(() => {
       if (i < dots.length) {
-        setActiveDots((prev) => [...prev, dots[i]])
+        const dot = dots[i]
+        if (dot) setActiveDots((prev) => [...prev, dot])
         i++
       } else {
         clearInterval(interval)
@@ -84,7 +86,7 @@ export function OnboardingRadar({ phase }: { phase: Phase }) {
           </g>
         )}
 
-        {activeDots.map((dot, i) => (
+        {activeDots.filter(Boolean).map((dot, i) => (
           <g key={i} className="animate-[ping-ring_2s_ease-out_infinite]" style={{ animationDelay: `${i * 0.1}s` }}>
             <circle cx={dot.cx} cy={dot.cy} r="4" fill="oklch(68% 0.18 75 / 0.9)" filter="url(#glw)" />
             <text
