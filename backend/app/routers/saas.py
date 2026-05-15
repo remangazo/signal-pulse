@@ -22,25 +22,30 @@ async def _run_pipeline_background(saas_id: str):
 
 @router.post("/register", response_model=SaaSOut)
 async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    saas = SaaS(
-        user_id="mock-user",
-        url=payload.url,
-        name=payload.name or payload.url,
-    )
+    try:
+        saas = SaaS(
+            user_id="mock-user",
+            url=payload.url,
+            name=payload.name or payload.url,
+        )
 
-    analysis = await analyze_saas(payload.url, payload.name)
-    saas.description = analysis.get("description", "")
-    saas.tone = analysis.get("tone", "professional")
-    saas.competitors = json.dumps(analysis.get("competitors", []))
-    saas.pain_points = json.dumps(analysis.get("pain_points", []))
+        analysis = await analyze_saas(payload.url, payload.name)
+        saas.description = analysis.get("description", "")
+        saas.tone = analysis.get("tone", "professional")
+        saas.competitors = json.dumps(analysis.get("competitors", []))
+        saas.pain_points = json.dumps(analysis.get("pain_points", []))
 
-    db.add(saas)
-    await db.commit()
-    await db.refresh(saas)
+        db.add(saas)
+        await db.commit()
+        await db.refresh(saas)
 
-    background.add_task(_run_pipeline_background, saas.id)
+        background.add_task(_run_pipeline_background, saas.id)
 
-    return saas
+        return saas
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SaaS analysis failed: {str(e)}")
 
 
 @router.post("/{saas_id}/scan", response_model=AgentRunResponse)

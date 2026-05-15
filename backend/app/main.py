@@ -29,6 +29,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "https://signalpulse.ai", "https://signal-pulse-frontend.vercel.app"],
+    allow_origin_regex="https://.*-leandros-projects-12edaa21\\.vercel\\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
