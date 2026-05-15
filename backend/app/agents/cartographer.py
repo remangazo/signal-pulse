@@ -4,37 +4,18 @@ Cartographer Agent — deep multi-step SaaS analysis:
 2. Multi-perspective LLM analysis
 3. Return structured competitive intelligence
 """
+import logging
 from app.core.llm import call_llm_json
 from app.core.firecrawl import scrape, crawl
 
-
-SYSTEM_PROMPT_DEEP = """You are a Senior Product & Market Analyst AI. Analyze this SaaS product in depth.
-
-Return JSON with ALL these fields:
-- name: exact product name
-- tagline: one-sentence tagline
-- description: 2-3 sentence description of what it does
-- pain_points: list of 5-8 specific painful problems it solves (be very specific)
-- search_triggers: list of 10-15 keywords/phrases people use when they need this
-- competitors: list of 3-5 competitor names
-- tone: brand tone (casual, professional, technical, playful, urgent, authoritative)
-- icp_description: who is the ideal customer (1-2 sentences)
-- industries: list of 2-4 industries this serves
-- pricing_model: freemium, subscription, usage-based, or unknown
-- key_features: list of 5-8 main features
-- target_geo: geographic target (global, US-only, EU, etc.)
-- business_model: B2B, B2C, or both
-- avg_contract_value_estimate: estimated price range
-- decision_makers: who makes the buying decision
-- objection_handlers: list of 3-5 common objections and how to address them
-- differentiation: 2-3 sentences on what makes them unique
-- content_themes: list of 5-8 content/topic themes their audience engages with"""
+logger = logging.getLogger(__name__)
 
 
 async def quick_scan_saas(url: str, name_hint: str | None = None) -> dict:
     page_text = await _deep_crawl(url)
     truncated = page_text[:3000] if page_text else ""
-    prompt = f"""Scan this SaaS URL and extract:
+    try:
+        prompt = f"""Scan this SaaS URL and extract:
 URL: {url}
 Page content:
 {truncated if truncated else "No content available."}
@@ -44,17 +25,47 @@ Return JSON with:
 - description: what it does in 1 sentence
 - problem: what problem it solves in 1 sentence
 - audience: who it's for"""
-    return await call_llm_json(prompt, temperature=0.2)
+        return await call_llm_json(prompt, temperature=0.2)
+    except Exception as e:
+        logger.warning(f"Quick scan LLM failed: {e}")
+        return {
+            "name": name_hint or url.split("//")[-1].split("/")[0].split(".")[-2].capitalize(),
+            "description": f"SaaS product at {url}",
+            "problem": "Analyzing their value proposition...",
+            "audience": "Users of this platform",
+        }
 
 
 async def analyze_saas(url: str, existing_description: str | None = None) -> dict:
     page_text = await _deep_crawl(url)
     truncated = page_text[:8000] if page_text else ""
 
-    step1 = await _step_initial_scan(url, truncated, existing_description)
-    step2 = await _step_deep_analysis(url, truncated, step1)
-
-    return step2
+    try:
+        step1 = await _step_initial_scan(url, truncated, existing_description)
+        step2 = await _step_deep_analysis(url, truncated, step1)
+        return step2
+    except Exception as e:
+        logger.warning(f"Deep analysis LLM failed: {e}")
+        return {
+            "name": url.split("//")[-1].split("/")[0].split(".")[-2].capitalize(),
+            "tagline": "",
+            "description": existing_description or f"SaaS product at {url}",
+            "pain_points": ["need to improve", "looking for better solution"],
+            "search_triggers": [url],
+            "competitors": [],
+            "tone": "professional",
+            "icp_description": "",
+            "industries": [],
+            "pricing_model": "unknown",
+            "key_features": [],
+            "target_geo": "global",
+            "business_model": "B2B",
+            "avg_contract_value_estimate": "",
+            "decision_makers": [],
+            "objection_handlers": [],
+            "differentiation": "",
+            "content_themes": [],
+        }
 
 
 async def _deep_crawl(url: str) -> str | None:
