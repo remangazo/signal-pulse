@@ -179,15 +179,15 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
     from sqlalchemy import text
-    result = await db.execute(text("SELECT status, candidates, leads_found, errors, error_message FROM pipeline_runs ORDER BY created_at DESC LIMIT 5"))
-    rows = result.fetchall()
-    return {
-        "count": len(rows),
-        "runs": [
-            {"status": r[0], "candidates": r[1], "leads_found": r[2], "errors": r[3], "error_message": str(r[4]) if r[4] else None}
-            for r in rows
-        ]
-    }
+    try:
+        result = await db.execute(text("SELECT status, candidates, leads_found, errors, error_message::text FROM pipeline_runs ORDER BY created_at DESC LIMIT 5"))
+        rows = result.fetchall()
+        return {
+            "count": len(rows),
+            "runs": [{"status": r[0], "candidates": r[1], "leads_found": r[2], "errors": r[3], "error_message": r[4]} for r in rows]
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.get("/debug/sentinel")
