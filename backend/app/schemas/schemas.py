@@ -6,7 +6,7 @@ import uuid
 
 class UserCreate(BaseModel):
     email: str
-    name: str
+    name: str = ""
     password: Optional[str] = None
     telegram_chat_id: Optional[str] = None
 

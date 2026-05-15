@@ -20,7 +20,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(body.detail || res.statusText, res.status)
+    const detail = body.detail
+    const message = Array.isArray(detail) ? detail.map((d: any) => d.msg || d.message).join(", ") : detail || res.statusText
+    throw new ApiError(message, res.status)
   }
 
   return res.json()
