@@ -25,10 +25,11 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            for stmt in [
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
-                "ALTER TABLE pipeline_runs ADD COLUMN IF NOT EXISTS error_message TEXT",
-            ]:
+        for stmt in [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
+            "ALTER TABLE pipeline_runs ADD COLUMN IF NOT EXISTS error_message TEXT",
+            "ALTER TABLE saas ALTER COLUMN user_id DROP NOT NULL",
+        ]:
                 try:
                     await conn.execute(text(stmt))
                 except Exception as e:

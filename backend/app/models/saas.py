@@ -9,7 +9,7 @@ class SaaS(Base):
     __tablename__ = "saas"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     url = Column(String(500), nullable=False)
     name = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)

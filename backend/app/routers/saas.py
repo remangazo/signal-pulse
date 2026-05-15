@@ -24,7 +24,7 @@ async def _run_pipeline_background(saas_id: str):
 async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
         saas = SaaS(
-            user_id="mock-user",
+            user_id=None,
             url=payload.url,
             name=payload.name or payload.url,
         )
