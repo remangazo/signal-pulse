@@ -12,16 +12,13 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import asyncio
-    asyncio.create_task(_init_db_background())
-    yield
-
-async def _init_db_background():
     try:
         from app.database import init_db
         await init_db()
+        print("DB initialized successfully")
     except Exception as e:
-        print(f"DB init skipped (background): {e}")
+        print(f"DB init error: {e}")
+    yield
 
 
 app = FastAPI(
