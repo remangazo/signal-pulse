@@ -52,10 +52,11 @@ export default function OnboardingPage() {
     }
   }
 
+  const phaseTimers = { current: { analyzing: null as ReturnType<typeof setTimeout> | null, scanning: null as ReturnType<typeof setTimeout> | null } }
   async function handleDeepAnalysis() {
-    setStep(3); setLoading(true); setPhase("crawling")
-    setTimeout(() => setPhase("analyzing"), 4000)
-    setTimeout(() => setPhase("scanning"), 9000)
+    setStep(3); setLoading(true); setPhase("crawling"); setError("")
+    phaseTimers.current.analyzing = setTimeout(() => setPhase("analyzing"), 4000)
+    phaseTimers.current.scanning = setTimeout(() => setPhase("scanning"), 9000)
     try {
       const config = JSON.stringify({
         description: scan.description,
@@ -64,12 +65,17 @@ export default function OnboardingPage() {
         name: scan.name,
       })
       const result = await api.saas.register({ url, name: name || undefined, config })
+      if (phaseTimers.current.analyzing) clearTimeout(phaseTimers.current.analyzing)
+      if (phaseTimers.current.scanning) clearTimeout(phaseTimers.current.scanning)
       setAnalysis(result)
       setPhase("complete"); setProgress(100)
-      await new Promise((r) => setTimeout(r, 800))
+      await new Promise((r) => setTimeout(r, 500))
       setStep(4)
     } catch (err: any) {
-      setError(err.message || "Error en análisis")
+      if (phaseTimers.current.analyzing) clearTimeout(phaseTimers.current.analyzing)
+      if (phaseTimers.current.scanning) clearTimeout(phaseTimers.current.scanning)
+      setError(err.message || "Error en el análisis profundo. Intenta de nuevo.")
+      setPhase("idle"); setProgress(0)
     } finally {
       setLoading(false)
     }
@@ -337,19 +343,19 @@ export default function OnboardingPage() {
                 <ul className="text-sm text-muted space-y-3 text-left">
                   <li className="flex items-start gap-2">
                     <span className="text-signal mt-0.5">◆</span>
-                    <span>Firecrawl extrae contenido de tu sitio</span>
+                    <span>Analizamos tu sitio web con inteligencia artificial</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-signal mt-0.5">◆</span>
-                    <span>Groq LLM analiza producto y mercado</span>
+                    <span>Extraemos propuesta de valor, audiencia y problema</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-signal mt-0.5">◆</span>
-                    <span>Detección de competidores y keywords</span>
+                    <span>Detectamos competidores y generamos keywords</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-signal mt-0.5">◆</span>
-                    <span>Búsqueda en comunidades relevantes</span>
+                    <span>Buscamos comunidades donde están tus clientes</span>
                   </li>
                 </ul>
               </div>
