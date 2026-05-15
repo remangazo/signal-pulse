@@ -42,6 +42,11 @@ export const api = {
       }),
   },
   saas: {
+    quickScan: (data: { url: string; name?: string }) =>
+      request<{ name: string; description: string; problem: string; audience: string }>("/saas/quick-scan", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     register: (data: { url: string; name?: string; config?: string }) =>
       request<{ id: string; url: string; name: string; description: string; tone: string; competitors: string; pain_points: string; config?: string; status: string }>("/saas/register", {
         method: "POST",

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.database import get_db, async_session
 from app.models.saas import SaaS
 from app.schemas.schemas import SaaSInput, SaaSOut, AgentRunResponse
-from app.agents.cartographer import analyze_saas
+from app.agents.cartographer import analyze_saas, quick_scan_saas
 from app.agents.sentinel import gather_raw_leads
 from app.agents.auditor import run_pipeline
 from app.agents.ghostwriter import draft_reply
@@ -18,6 +18,12 @@ router = APIRouter(prefix="/saas", tags=["saas"])
 async def _run_pipeline_background(saas_id: str):
     async with async_session() as db:
         await run_full_pipeline(saas_id, db)
+
+
+@router.post("/quick-scan")
+async def quick_scan(payload: SaaSInput):
+    result = await quick_scan_saas(payload.url, payload.name)
+    return result
 
 
 @router.post("/register", response_model=SaaSOut)

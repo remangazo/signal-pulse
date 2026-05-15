@@ -31,6 +31,22 @@ Return JSON with ALL these fields:
 - content_themes: list of 5-8 content/topic themes their audience engages with"""
 
 
+async def quick_scan_saas(url: str, name_hint: str | None = None) -> dict:
+    page_text = await _deep_crawl(url)
+    truncated = page_text[:3000] if page_text else ""
+    prompt = f"""Scan this SaaS URL and extract:
+URL: {url}
+Page content:
+{truncated if truncated else "No content available."}
+
+Return JSON with:
+- name: the product name
+- description: what it does in 1 sentence
+- problem: what problem it solves in 1 sentence
+- audience: who it's for"""
+    return await call_llm_json(prompt, temperature=0.2)
+
+
 async def analyze_saas(url: str, existing_description: str | None = None) -> dict:
     page_text = await _deep_crawl(url)
     truncated = page_text[:8000] if page_text else ""
