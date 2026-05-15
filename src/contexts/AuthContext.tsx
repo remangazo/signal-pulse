@@ -14,7 +14,7 @@ type AuthContextType = {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name: string) => Promise<void>
+  register: (email: string, password: string, name: string, telegramChatId?: string) => Promise<void>
   logout: () => void
 }
 
@@ -38,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(token)
   }, [])
 
-  const register = useCallback(async (email: string, password: string, name: string) => {
-    const user = await api.auth.register({ email, password, name })
+  const register = useCallback(async (email: string, password: string, name: string, telegramChatId?: string) => {
+    const user = await api.auth.register({ email, password, name, telegram_chat_id: telegramChatId || undefined })
     await login(email, password)
   }, [login])
 

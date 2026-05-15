@@ -28,8 +28,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   auth: {
-    register: (data: { email: string; password: string; name: string }) =>
-      request<{ id: string; email: string; name: string; is_active: boolean; created_at: string }>("/auth/register", {
+    register: (data: { email: string; password: string; name: string; telegram_chat_id?: string }) =>
+      request<{ id: string; email: string; name: string; telegram_chat_id?: string; is_active: boolean; created_at: string }>("/auth/register", {
         method: "POST",
         body: JSON.stringify(data),
       }),

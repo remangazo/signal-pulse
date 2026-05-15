@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [telegramChatId, setTelegramChatId] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const { register } = useAuth()
@@ -19,7 +20,7 @@ export default function RegisterPage() {
     setError("")
     setLoading(true)
     try {
-      await register(email, password, name)
+      await register(email, password, name, telegramChatId)
       router.push("/onboarding")
     } catch (err: any) {
       setError(err.message || "Error al registrar")
@@ -72,6 +73,22 @@ export default function RegisterPage() {
               placeholder="••••••••"
               minLength={6}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Telegram Chat ID <span className="text-muted font-normal">(para notificaciones)</span>
+            </label>
+            <input
+              type="text"
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg bg-deep border border-border text-foreground placeholder:text-muted focus:outline-none focus:border-signal"
+              placeholder="Ej: 123456789"
+            />
+            <p className="text-xs text-muted mt-1">
+              Habla con <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">@userinfobot</a> en Telegram para obtener tu ID numérico
+            </p>
           </div>
 
           {error && <p className="text-red-400 text-sm">{error}</p>}

@@ -8,12 +8,14 @@ class UserCreate(BaseModel):
     email: str
     name: str
     password: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
 
 
 class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     name: str
+    telegram_chat_id: Optional[str] = None
     is_active: bool
     created_at: datetime
 

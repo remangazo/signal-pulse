@@ -31,6 +31,13 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         competitors = json.loads(saas.competitors) if saas.competitors else []
         search_terms = pain_points + competitors + [saas.name]
 
+        user_chat_id = None
+        if saas.user_id:
+            from app.models.user import User
+            user_result = await db.execute(select(User).where(User.id == saas.user_id))
+            user = user_result.scalar_one_or_none()
+            user_chat_id = user.telegram_chat_id if user else None
+
         raw_leads = await gather_raw_leads(search_terms)
 
         saas_info = {
@@ -86,6 +93,7 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
                     lead_name=raw.get("author", "unknown"),
                     lead_source=raw.get("source", "unknown"),
                     summary=audio_result.get("suggested_approach", ""),
+                    chat_id=user_chat_id,
                 )
             except Exception:
                 errors += 1
@@ -101,7 +109,7 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         await db.commit()
 
         if leads_created > 0:
-            await notify_pipeline_complete(saas_name=saas.name, total_leads=leads_created)
+            await notify_pipeline_complete(saas_name=saas.name, total_leads=leads_created, chat_id=user_chat_id)
 
         return {"status": "success", "leads_found": leads_created, "errors": errors, "total_candidates": len(raw_leads), "duration_seconds": duration}
 

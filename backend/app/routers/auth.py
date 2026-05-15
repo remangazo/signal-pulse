@@ -30,6 +30,7 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     user = User(
         email=payload.email,
         name=payload.name,
+        telegram_chat_id=payload.telegram_chat_id,
         password_hash=_hash_password(payload.password) if payload.password else None,
     )
     db.add(user)
