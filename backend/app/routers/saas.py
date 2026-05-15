@@ -248,6 +248,8 @@ Classify this post as LEAD, NOISE, or UNCERTAIN.""",
     return {
         "llm_provider": settings.llm_provider,
         "llm_model": settings.llm_model,
+        "llm_api_key_prefix": settings.llm_api_key[:10] if settings.llm_api_key else "empty",
+        "groq_api_key_prefix": settings.groq_api_key[:10] if settings.groq_api_key else "empty",
         "layer1": {"score": layer1_score, "classification": layer1_class},
         "layer2": {"ok": layer2_ok, "result": layer2_result},
         "full_pipeline": {"ok": pipeline_ok, "result": full_result},
