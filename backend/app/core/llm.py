@@ -37,6 +37,13 @@ async def _retry_with_backoff(func, max_retries=3):
                 await asyncio.sleep(wait)
                 continue
             raise
+        except httpx.HTTPError as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                wait = min(2 ** attempt * 5, 30)
+                logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(wait)
+                continue
+            raise
         except Exception:
             raise
     raise Exception("Max retries exceeded due to rate limiting")

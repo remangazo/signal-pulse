@@ -79,9 +79,19 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         leads_created = 0
         errors = 0
 
+        from app.agents.auditor import layer1_heuristic
+        scored_leads = []
         for raw in raw_leads:
+            score, classification = layer1_heuristic(raw.get("content", ""))
+            scored_leads.append((score, classification, raw))
+
+        scored_leads.sort(key=lambda x: x[0], reverse=True)
+        max_leads_to_process = min(10, len(scored_leads))
+        logger.info(f"Processing top {max_leads_to_process} leads out of {len(raw_leads)}")
+
+        for score, classification, raw in scored_leads[:max_leads_to_process]:
             try:
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
                 audio_result = await run_pipeline(
                     content=raw["content"],
