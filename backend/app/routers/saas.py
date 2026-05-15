@@ -178,19 +178,24 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 @router.get("/pipeline-runs")
 async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
+    from sqlalchemy import func
     try:
-        result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(10))
+        total = (await db.execute(select(func.count(PipelineRun.id)))).scalar()
+        result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(5))
         runs = result.scalars().all()
-        return {"count": len(runs), "runs": [
-            {
-                "status": r.status,
-                "candidates": r.candidates,
-                "leads_found": r.leads_found,
-                "errors": r.errors,
-                "error_message": r.error_message,
-            }
-            for r in runs
-        ]}
+        return {
+            "total": total,
+            "runs": [
+                {
+                    "status": r.status,
+                    "candidates": r.candidates,
+                    "leads_found": r.leads_found,
+                    "errors": r.errors,
+                    "error_message": r.error_message,
+                }
+                for r in runs
+            ]
+        }
     except Exception as e:
         import traceback
         return {"error": str(e), "traceback": traceback.format_exc()}
