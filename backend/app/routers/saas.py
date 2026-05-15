@@ -1,23 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.database import get_db
+from app.database import get_db, async_session
 from app.models.saas import SaaS
 from app.schemas.schemas import SaaSInput, SaaSOut, AgentRunResponse
 from app.agents.cartographer import analyze_saas
 from app.agents.sentinel import gather_raw_leads
 from app.agents.auditor import run_pipeline
 from app.agents.ghostwriter import draft_reply
+from app.agents.orchestrator import run_full_pipeline
 from app.models.lead import Lead
 import json
 
 router = APIRouter(prefix="/saas", tags=["saas"])
 
 
+async def _run_pipeline_background(saas_id: str):
+    async with async_session() as db:
+        await run_full_pipeline(saas_id, db)
+
+
 @router.post("/register", response_model=SaaSOut)
-async def register_saas(payload: SaaSInput, user_id: str = "mock-user", db: AsyncSession = Depends(get_db)):
+async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     saas = SaaS(
-        user_id=user_id,
+        user_id="mock-user",
         url=payload.url,
         name=payload.name or payload.url,
     )
@@ -31,6 +37,9 @@ async def register_saas(payload: SaaSInput, user_id: str = "mock-user", db: Asyn
     db.add(saas)
     await db.commit()
     await db.refresh(saas)
+
+    background.add_task(_run_pipeline_background, saas.id)
+
     return saas
 
 
