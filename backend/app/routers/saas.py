@@ -178,19 +178,38 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 @router.get("/pipeline-runs")
 async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
-    result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(10))
-    runs = result.scalars().all()
-    out = []
-    for r in runs:
-        out.append({
-            "id": str(r.id),
-            "saas_id": str(r.saas_id),
-            "status": r.status,
-            "candidates": r.candidates,
-            "leads_found": r.leads_found,
-            "errors": r.errors,
-            "duration_seconds": r.duration_seconds,
-            "error_message": r.error_message,
-            "created_at": str(r.created_at),
-        })
-    return out
+    try:
+        result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(10))
+        runs = result.scalars().all()
+        out = []
+        for r in runs:
+            out.append({
+                "id": str(r.id),
+                "saas_id": str(r.saas_id),
+                "status": r.status,
+                "candidates": r.candidates,
+                "leads_found": r.leads_found,
+                "errors": r.errors,
+                "duration_seconds": r.duration_seconds,
+                "error_message": r.error_message,
+                "created_at": str(r.created_at),
+            })
+        return out
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/debug/sentinel")
+async def debug_sentinel():
+    import json
+    from app.agents.sentinel import gather_raw_leads
+    from app.config import get_settings
+    settings = get_settings()
+    search_terms = ["analytics tool alternative", "looking for analytics software", "tired of manual reporting"]
+    raw = await gather_raw_leads(search_terms)
+    return {
+        "apify_configured": bool(settings.apify_api_key),
+        "search_terms": search_terms,
+        "raw_leads_count": len(raw),
+        "raw_leads": raw[:5],
+    }
