@@ -1,9 +1,12 @@
 import json
+import asyncio
+import logging
 from typing import Optional
 import httpx
 from app.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 PROVIDER_CONFIGS = {
     "openai":      {"base_url": "https://api.openai.com/v1",           "default_model": "gpt-4o-mini"},
@@ -21,6 +24,22 @@ def _build_client():
     api_key = settings.llm_api_key or settings.groq_api_key or settings.openai_api_key or settings.gemini_api_key
     model = settings.llm_model or cfg.get("default_model", "")
     return provider, base_url, api_key, model
+
+
+async def _retry_with_backoff(func, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return await func()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                wait = min(2 ** attempt * 5, 30)
+                logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(wait)
+                continue
+            raise
+        except Exception:
+            raise
+    raise Exception("Max retries exceeded due to rate limiting")
 
 
 async def call_llm(
@@ -55,11 +74,14 @@ async def call_llm(
         "max_tokens": max_tokens,
     }
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
+    async def _do_call():
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+
+    return await _retry_with_backoff(_do_call)
 
 
 async def call_llm_json(
@@ -94,11 +116,14 @@ async def call_llm_json(
         "response_format": {"type": "json_object"},
     }
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return json.loads(data["choices"][0]["message"]["content"])
+    async def _do_call():
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            return json.loads(data["choices"][0]["message"]["content"])
+
+    return await _retry_with_backoff(_do_call)
 
 
 async def _call_gemini_native(prompt, system_instruction, model, temperature, max_tokens):

@@ -2,6 +2,7 @@
 Orchestrator Agent — chains Sentinel → Auditor → Ghostwriter
 and stores results in the database with monitoring.
 """
+import asyncio
 import json
 import time
 import logging
@@ -80,6 +81,8 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
 
         for raw in raw_leads:
             try:
+                await asyncio.sleep(2)
+
                 audio_result = await run_pipeline(
                     content=raw["content"],
                     saas_description=saas.description or "",
