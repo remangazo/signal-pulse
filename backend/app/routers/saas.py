@@ -181,22 +181,19 @@ async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
     try:
         result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(10))
         runs = result.scalars().all()
-        out = []
-        for r in runs:
-            out.append({
-                "id": str(r.id),
-                "saas_id": str(r.saas_id),
+        return {"count": len(runs), "runs": [
+            {
                 "status": r.status,
                 "candidates": r.candidates,
                 "leads_found": r.leads_found,
                 "errors": r.errors,
-                "duration_seconds": r.duration_seconds,
                 "error_message": r.error_message,
-                "created_at": str(r.created_at),
-            })
-        return out
+            }
+            for r in runs
+        ]}
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 
 @router.get("/debug/sentinel")
