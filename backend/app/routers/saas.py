@@ -144,15 +144,6 @@ async def list_saas(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.get("/{saas_id}")
-async def get_saas(saas_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(SaaS).where(SaaS.id == saas_id))
-    saas = result.scalar_one_or_none()
-    if not saas:
-        raise HTTPException(status_code=404, detail="SaaS not found")
-    return saas
-
-
 @router.get("/stats/overview")
 async def get_stats(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
@@ -178,14 +169,10 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 @router.get("/pipeline-runs")
 async def list_pipeline_runs(db: AsyncSession = Depends(get_db)):
     from app.models.pipeline_run import PipelineRun
-    from sqlalchemy import text
     try:
-        result = await db.execute(text("SELECT status, candidates, leads_found, errors, error_message::text FROM pipeline_runs ORDER BY created_at DESC LIMIT 5"))
-        rows = result.fetchall()
-        return {
-            "count": len(rows),
-            "runs": [{"status": r[0], "candidates": r[1], "leads_found": r[2], "errors": r[3], "error_message": r[4]} for r in rows]
-        }
+        result = await db.execute(select(PipelineRun).order_by(PipelineRun.created_at.desc()).limit(5))
+        runs = result.scalars().all()
+        return [{"status": r.status, "candidates": r.candidates, "leads_found": r.leads_found, "errors": r.errors, "error_message": r.error_message} for r in runs]
     except Exception as e:
         return {"error": str(e)}
 
@@ -250,3 +237,12 @@ Classify this post as LEAD, NOISE, or UNCERTAIN.""",
         "layer2": {"ok": layer2_ok, "result": layer2_result},
         "full_pipeline": {"ok": pipeline_ok, "result": full_result},
     }
+
+
+@router.get("/{saas_id}")
+async def get_saas(saas_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SaaS).where(SaaS.id == saas_id))
+    saas = result.scalar_one_or_none()
+    if not saas:
+        raise HTTPException(status_code=404, detail="SaaS not found")
+    return saas
