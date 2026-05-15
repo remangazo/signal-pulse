@@ -210,3 +210,47 @@ async def debug_sentinel():
         "raw_leads_count": len(raw),
         "raw_leads": raw[:5],
     }
+
+
+@router.get("/debug/pipeline-test")
+async def debug_pipeline_test():
+    from app.agents.auditor import run_pipeline, layer1_heuristic
+    from app.core.llm import call_llm_json
+    from app.config import get_settings
+    settings = get_settings()
+
+    test_content = "I'm really frustrated with how slow our current analytics tool is. Looking for something faster that doesn't cost a fortune. Anyone tried alternatives?"
+
+    layer1_score, layer1_class = layer1_heuristic(test_content)
+
+    try:
+        layer2_result = await call_llm_json(
+            f"""SaaS Description: AI analytics for SaaS
+Post: "{test_content}"
+Classify this post as LEAD, NOISE, or UNCERTAIN.""",
+            system_instruction="You are a Lead Classifier AI. Respond with JSON: {\"classification\": \"LEAD|NOISE|UNCERTAIN\", \"reason\": \"brief explanation\", \"confidence\": 0.0-1.0}",
+            temperature=0.2
+        )
+        layer2_ok = True
+    except Exception as e:
+        layer2_result = {"error": str(e)}
+        layer2_ok = False
+
+    try:
+        full_result = await run_pipeline(
+            content=test_content,
+            saas_description="AI analytics for SaaS",
+            saas_info={"name": "AnalyticsAI", "icp_ideal": "SaaS founders"},
+        )
+        pipeline_ok = True
+    except Exception as e:
+        full_result = {"error": str(e)}
+        pipeline_ok = False
+
+    return {
+        "llm_provider": settings.llm_provider,
+        "llm_model": settings.llm_model,
+        "layer1": {"score": layer1_score, "classification": layer1_class},
+        "layer2": {"ok": layer2_ok, "result": layer2_result},
+        "full_pipeline": {"ok": pipeline_ok, "result": full_result},
+    }
