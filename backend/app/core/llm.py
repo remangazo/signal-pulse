@@ -8,9 +8,6 @@ from app.config import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-_last_call_time = 0
-_llm_lock = asyncio.Lock()
-
 PROVIDER_CONFIGS = {
     "openai":      {"base_url": "https://api.openai.com/v1",           "default_model": "gpt-4o-mini"},
     "groq":        {"base_url": "https://api.groq.com/openai/v1",      "default_model": "llama-3.3-70b-versatile"},
@@ -29,40 +26,30 @@ def _build_client():
     return provider, base_url, api_key, model
 
 
-async def _rate_limit_delay():
-    global _last_call_time
-    async with _llm_lock:
-        now = asyncio.get_event_loop().time()
-        elapsed = now - _last_call_time
-        if elapsed < 3.0:
-            wait = 3.0 - elapsed
-            logger.debug(f"Rate limit delay: waiting {wait:.1f}s")
-            await asyncio.sleep(wait)
-        _last_call_time = asyncio.get_event_loop().time()
+_llm_semaphore = asyncio.Semaphore(1)
 
 
-async def _retry_with_backoff(func, max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            await _rate_limit_delay()
-            return await func()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429 and attempt < max_retries - 1:
-                wait = 30
-                logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
-                await asyncio.sleep(wait)
-                continue
-            raise
-        except httpx.HTTPError as e:
-            if "429" in str(e) and attempt < max_retries - 1:
-                wait = 30
-                logger.warning(f"Rate limited (429), retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
-                await asyncio.sleep(wait)
-                continue
-            raise
-        except Exception:
-            raise
-    raise Exception("Max retries exceeded due to rate limiting")
+async def _rate_limited_call(func):
+    async with _llm_semaphore:
+        await asyncio.sleep(2)
+        for attempt in range(3):
+            try:
+                return await func()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429 and attempt < 2:
+                    wait = 20
+                    logger.warning(f"429, retry {attempt + 1}/3 in {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+                raise
+            except httpx.HTTPError as e:
+                if "429" in str(e) and attempt < 2:
+                    wait = 20
+                    logger.warning(f"429, retry {attempt + 1}/3 in {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+                raise
+        raise Exception("Max retries exceeded")
 
 
 async def call_llm(
@@ -104,7 +91,7 @@ async def call_llm(
             data = resp.json()
             return data["choices"][0]["message"]["content"]
 
-    return await _retry_with_backoff(_do_call)
+    return await _rate_limited_call(_do_call)
 
 
 async def call_llm_json(
@@ -146,7 +133,7 @@ async def call_llm_json(
             data = resp.json()
             return json.loads(data["choices"][0]["message"]["content"])
 
-    return await _retry_with_backoff(_do_call)
+    return await _rate_limited_call(_do_call)
 
 
 async def _call_gemini_native(prompt, system_instruction, model, temperature, max_tokens):
