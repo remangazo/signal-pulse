@@ -1,9 +1,8 @@
 """
 Sentinel Agent — monitors social platforms for potential leads.
-Uses Reddit API directly + Apify for X/Twitter scraping.
+Uses Reddit API directly for lead discovery.
 """
 import httpx
-from typing import Optional
 from app.config import get_settings
 
 settings = get_settings()
@@ -51,26 +50,6 @@ async def search_reddit(search_terms: list[str], subreddits: list[str] | None = 
     return results
 
 
-async def search_x_twitter(search_terms: list[str]) -> list[dict]:
-    from apify_client import ApifyClient
-    if not settings.apify_api_key:
-        return _mock_x_results(search_terms)
-
-    client = ApifyClient(settings.apify_api_key)
-    results = []
-    for term in search_terms:
-        try:
-            run = client.actor("apify~twitter-tweets-scraper").call(
-                run_input={"searchTerms": [term], "maxTweets": 20, "includeReplies": True}
-            )
-            items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
-            results.extend(items)
-        except Exception as e:
-            print(f"X/Twitter search error for '{term}': {e}")
-            continue
-    return results
-
-
 async def gather_raw_leads(
     search_terms: list[str],
     subreddits: list[str] | None = None,
@@ -91,20 +70,4 @@ async def gather_raw_leads(
                 "num_comments": r.get("num_comments", 0),
             })
 
-    if not sources or "x" in sources:
-        x_results = await search_x_twitter(search_terms)
-        for r in x_results:
-            all_leads.append({
-                "source": "x",
-                "content": r.get("text", ""),
-                "author": r.get("user", {}).get("username", ""),
-                "url": r.get("url", ""),
-                "retweet_count": r.get("retweetCount", 0),
-                "like_count": r.get("likeCount", 0),
-            })
-
     return all_leads
-
-
-def _mock_x_results(search_terms: list[str]) -> list[dict]:
-    return []
