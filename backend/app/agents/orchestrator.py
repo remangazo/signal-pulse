@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[AsyncSession]) -> dict:
     try:
         return await asyncio.wait_for(
-            _run_pipeline(saas_id, session_factory), timeout=120)
+            _run_pipeline(saas_id, session_factory), timeout=300)
     except asyncio.TimeoutError:
         logger.error(f"TIMEOUT pipeline {saas_id}")
         return {"status": "error", "message": "Pipeline timed out"}
@@ -70,9 +70,8 @@ async def _run_pipeline(saas_id: str, session_factory: async_sessionmaker[AsyncS
             for i, (score, classification, raw) in enumerate(scored[:limit]):
                 try:
                     if i < 3:
-                        audio = await asyncio.wait_for(
-                            run_pipeline(content=raw["content"], saas_description=saas.description or "", saas_info=saas_info),
-                            timeout=25)
+                        audio = await run_pipeline(
+                            content=raw["content"], saas_description=saas.description or "", saas_info=saas_info)
                     else:
                         audio = {
                             "intent_score": round(score * 10, 1),
@@ -84,16 +83,14 @@ async def _run_pipeline(saas_id: str, session_factory: async_sessionmaker[AsyncS
                         continue
 
                     if i < 3:
-                        ghost = await asyncio.wait_for(
-                            draft_reply(
-                                lead_content=raw["content"],
-                                saas_name=saas.name or "",
-                                saas_description=saas.description or "",
-                                tone=saas.tone or "professional",
-                                competitor_mentioned=audio.get("competitor_mentioned"),
-                                pain_points=audio.get("pain_points"),
-                            ),
-                            timeout=20)
+                        ghost = await draft_reply(
+                            lead_content=raw["content"],
+                            saas_name=saas.name or "",
+                            saas_description=saas.description or "",
+                            tone=saas.tone or "professional",
+                            competitor_mentioned=audio.get("competitor_mentioned"),
+                            pain_points=audio.get("pain_points"),
+                        )
                     else:
                         ghost = {"reply": "", "angle": "layer1"}
 
@@ -113,9 +110,6 @@ async def _run_pipeline(saas_id: str, session_factory: async_sessionmaker[AsyncS
                     )
                     db.add(lead)
                     leads_created += 1
-                except asyncio.TimeoutError:
-                    errors += 1
-                    logger.warning(f"TIMEOUT lead {i}")
                 except Exception as e:
                     errors += 1
                     logger.error(f"ERROR lead {i}: {e}")
