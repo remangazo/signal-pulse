@@ -10,8 +10,6 @@ from app.agents.auditor import run_pipeline
 from app.agents.ghostwriter import draft_reply
 from app.agents.orchestrator import run_full_pipeline
 from app.models.lead import Lead
-from app.models.user import User
-from app.routers.auth import get_current_user
 import json
 
 router = APIRouter(prefix="/saas", tags=["saas"])
@@ -41,10 +39,10 @@ async def quick_scan(payload: SaaSInput):
 
 
 @router.post("/register", response_model=SaaSOut)
-async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
         saas = SaaS(
-            user_id=user.id if user else None,
+            user_id=None,
             url=payload.url,
             name=payload.name or payload.url,
             config=payload.config,
@@ -145,11 +143,8 @@ async def scan_for_leads(saas_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/")
-async def list_saas(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    if user:
-        result = await db.execute(select(SaaS).where(SaaS.user_id == user.id).order_by(SaaS.created_at.desc()))
-    else:
-        result = await db.execute(select(SaaS).order_by(SaaS.created_at.desc()))
+async def list_saas(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SaaS).order_by(SaaS.created_at.desc()))
     return result.scalars().all()
 
 
