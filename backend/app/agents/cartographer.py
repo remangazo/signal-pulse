@@ -47,10 +47,10 @@ async def analyze_saas(url: str, existing_description: str | None = None) -> dic
     except Exception as e:
         logger.warning(f"Deep analysis LLM failed: {e}")
         return {
-            "name": url.split("//")[-1].split("/")[0].split(".")[-2].capitalize(),
+            "name": name_hint or url.split("//")[-1].split("/")[0].split(".")[-2].capitalize(),
             "tagline": "",
             "description": existing_description or f"SaaS product at {url}",
-            "pain_points": ["need to improve", "looking for better solution"],
+            "pain_points": [],
             "search_triggers": [url],
             "competitors": [],
             "tone": "professional",

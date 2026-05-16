@@ -19,12 +19,16 @@ router = APIRouter(prefix="/saas", tags=["saas"])
 
 async def _run_pipeline_background(saas_id: str):
     import logging
+    import asyncio
     logger = logging.getLogger(__name__)
     try:
         logger.info(f"Starting background pipeline for {saas_id}")
-        async with async_session() as db:
-            result = await run_full_pipeline(saas_id, db)
-            logger.info(f"Pipeline result: {result}")
+        async with asyncio.timeout(300):
+            async with async_session() as db:
+                result = await run_full_pipeline(saas_id, db)
+                logger.info(f"Pipeline result: {result}")
+    except asyncio.TimeoutError:
+        logging.getLogger(__name__).error(f"Pipeline {saas_id} timed out after 300s")
     except Exception as e:
         import traceback
         logging.getLogger(__name__).error(f"Background pipeline failed: {e}\n{traceback.format_exc()}")
