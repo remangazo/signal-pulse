@@ -197,6 +197,9 @@ async def debug_sentinel():
 async def debug_run_pipeline(saas_id: str):
     result = await run_full_pipeline(saas_id, async_session)
     return result
+
+
+@router.get("/debug/pipeline-test")
 async def debug_pipeline_test():
     from app.agents.auditor import run_pipeline, layer1_heuristic
     from app.core.llm import call_llm_json
