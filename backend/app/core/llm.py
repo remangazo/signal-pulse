@@ -27,26 +27,18 @@ def _build_client():
 
 
 async def _call_with_retry(func):
-    await asyncio.sleep(1)
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             return await func()
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429 and attempt < 2:
-                logger.warning(f"429, retry {attempt + 1}/3 in 20s")
-                await asyncio.sleep(20)
+            if e.response.status_code == 429 and attempt < 1:
+                await asyncio.sleep(10)
                 continue
             raise
-        except httpx.TimeoutException:
-            if attempt < 2:
-                logger.warning(f"Timeout, retry {attempt + 1}/3")
-                await asyncio.sleep(5)
-                continue
-            raise
-        except httpx.HTTPError as e:
-            if "429" in str(e) and attempt < 2:
-                logger.warning(f"429, retry {attempt + 1}/3 in 20s")
-                await asyncio.sleep(20)
+        except (httpx.TimeoutException, httpx.HTTPError) as e:
+            if attempt < 1:
+                logger.warning(f"LLM call failed (retry): {e}")
+                await asyncio.sleep(3)
                 continue
             raise
     raise Exception("Max retries exceeded")
@@ -85,7 +77,7 @@ async def call_llm(
     }
 
     async def _do_call():
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
             resp.raise_for_status()
             data = resp.json()
@@ -127,7 +119,7 @@ async def call_llm_json(
     }
 
     async def _do_call():
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
             resp.raise_for_status()
             data = resp.json()
