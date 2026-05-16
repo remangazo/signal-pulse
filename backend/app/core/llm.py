@@ -27,14 +27,14 @@ def _build_client():
 
 
 async def _call_with_retry(func):
-    await asyncio.sleep(3)
+    await asyncio.sleep(1)
     for attempt in range(3):
         try:
             return await func()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429 and attempt < 2:
-                logger.warning(f"429, retry {attempt + 1}/3 in 30s")
-                await asyncio.sleep(30)
+                logger.warning(f"429, retry {attempt + 1}/3 in 20s")
+                await asyncio.sleep(20)
                 continue
             raise
         except httpx.TimeoutException:
@@ -45,8 +45,8 @@ async def _call_with_retry(func):
             raise
         except httpx.HTTPError as e:
             if "429" in str(e) and attempt < 2:
-                logger.warning(f"429, retry {attempt + 1}/3 in 30s")
-                await asyncio.sleep(30)
+                logger.warning(f"429, retry {attempt + 1}/3 in 20s")
+                await asyncio.sleep(20)
                 continue
             raise
     raise Exception("Max retries exceeded")
