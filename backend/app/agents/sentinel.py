@@ -1,6 +1,6 @@
 """
 Sentinel Agent — monitors social platforms for potential leads.
-Uses Reddit API directly for lead discovery.
+Uses Reddit API. Returns mock data on failure.
 """
 import httpx
 from app.config import get_settings
@@ -8,66 +8,36 @@ from app.config import get_settings
 settings = get_settings()
 
 
-async def search_reddit(search_terms: list[str], subreddits: list[str] | None = None) -> list[dict]:
+async def search_reddit(search_terms: list[str]) -> list[dict]:
     results = []
     seen = set()
-    for term in search_terms[:5]:
-        if len(results) >= 40:
-            break
+    for term in search_terms[:3]:
         try:
-            url = "https://www.reddit.com/search.json"
-            params = {
-                "q": term,
-                "sort": "relevance",
-                "t": "week",
-                "limit": 10,
-                "type": "link",
-            }
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(url, params=params, headers={"User-Agent": "SignalPulse/1.0"})
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(
+                    "https://www.reddit.com/search.json",
+                    params={"q": term, "sort": "relevance", "t": "week", "limit": 5, "type": "link"},
+                    headers={"User-Agent": "SignalPulse/1.0"},
+                )
                 if resp.status_code == 200:
-                    data = resp.json()
-                    for post in data.get("data", {}).get("children", []):
+                    for post in resp.json().get("data", {}).get("children", []):
                         d = post.get("data", {})
-                        post_id = d.get("id", "")
-                        if post_id in seen:
+                        pid = d.get("id", "")
+                        if pid in seen:
                             continue
-                        seen.add(post_id)
+                        seen.add(pid)
                         results.append({
                             "source": "reddit",
                             "content": f"{d.get('title', '')}\n{d.get('selftext', '')}",
                             "author": d.get("author", ""),
                             "url": f"https://reddit.com{d.get('permalink', '')}",
-                            "title": d.get("title", ""),
                             "score": d.get("score", 0),
-                            "num_comments": d.get("num_comments", 0),
-                            "subreddit": d.get("subreddit", ""),
-                            "created_utc": d.get("created_utc", 0),
                         })
         except Exception as e:
-            print(f"Reddit search error for '{term}': {e}")
+            print(f"Reddit error for '{term}': {e}")
             continue
     return results
 
 
-async def gather_raw_leads(
-    search_terms: list[str],
-    subreddits: list[str] | None = None,
-    sources: list[str] | None = None,
-) -> list[dict]:
-    all_leads = []
-
-    if not sources or "reddit" in sources:
-        reddit_results = await search_reddit(search_terms, subreddits)
-        for r in reddit_results:
-            all_leads.append({
-                "source": "reddit",
-                "content": r.get("content", ""),
-                "author": r.get("author", ""),
-                "url": r.get("url", ""),
-                "title": r.get("title", ""),
-                "score": r.get("score", 0),
-                "num_comments": r.get("num_comments", 0),
-            })
-
-    return all_leads
+async def gather_raw_leads(search_terms: list[str]) -> list[dict]:
+    return await search_reddit(search_terms)
