@@ -1,14 +1,39 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.user import User
 from app.schemas.schemas import UserCreate, UserOut, TokenOut
 from app.config import get_settings
-import hashlib, uuid
+import hashlib, uuid, jwt
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
+security = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        result = await db.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+    except Exception:
+        return None
+
+
+@router.get("/me", response_model=UserOut | None)
+async def get_me(user: User = Depends(get_current_user)):
+    return user
 
 
 def _hash_password(password: str) -> str:
@@ -57,9 +82,6 @@ async def login(payload: UserCreate, db: AsyncSession = Depends(get_db)):
 
     if not _verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    import jwt
-    from datetime import datetime, timedelta, timezone
 
     token = jwt.encode(
         {
