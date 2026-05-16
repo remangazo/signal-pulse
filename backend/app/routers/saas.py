@@ -17,20 +17,15 @@ router = APIRouter(prefix="/saas", tags=["saas"])
 
 async def _run_pipeline_background(saas_id: str):
     import logging
-    import asyncio
     logger = logging.getLogger(__name__)
     try:
-        logger.info(f"Starting background pipeline for {saas_id}")
-        async with asyncio.timeout(300):
-            async with async_session() as db:
-                result = await run_full_pipeline(saas_id, db)
-                logger.info(f"Pipeline result: {result}")
-                return result
-    except asyncio.TimeoutError:
-        logger.error(f"Pipeline {saas_id} timed out after 300s")
+        logger.info(f"Starting pipeline for {saas_id}")
+        async with async_session() as db:
+            result = await run_full_pipeline(saas_id, db)
+            logger.info(f"Pipeline result: {result}")
     except Exception as e:
         import traceback
-        logger.error(f"Background pipeline failed: {e}\n{traceback.format_exc()}")
+        logger.error(f"Pipeline failed: {e}\n{traceback.format_exc()}")
 
 
 @router.post("/quick-scan")
@@ -198,7 +193,10 @@ async def debug_sentinel():
     }
 
 
-@router.get("/debug/pipeline-test")
+@router.get("/debug/run-pipeline/{saas_id}")
+async def debug_run_pipeline(saas_id: str, db: AsyncSession = Depends(get_db)):
+    result = await run_full_pipeline(saas_id, db)
+    return result
 async def debug_pipeline_test():
     from app.agents.auditor import run_pipeline, layer1_heuristic
     from app.core.llm import call_llm_json
