@@ -20,9 +20,8 @@ async def _run_pipeline_background(saas_id: str):
     logger = logging.getLogger(__name__)
     try:
         logger.info(f"Starting pipeline for {saas_id}")
-        async with async_session() as db:
-            result = await run_full_pipeline(saas_id, db)
-            logger.info(f"Pipeline result: {result}")
+        result = await run_full_pipeline(saas_id, async_session)
+        logger.info(f"Pipeline result: {result}")
     except Exception as e:
         import traceback
         logger.error(f"Pipeline failed: {e}\n{traceback.format_exc()}")
@@ -195,8 +194,8 @@ async def debug_sentinel():
 
 
 @router.get("/debug/run-pipeline/{saas_id}")
-async def debug_run_pipeline(saas_id: str, db: AsyncSession = Depends(get_db)):
-    result = await run_full_pipeline(saas_id, db)
+async def debug_run_pipeline(saas_id: str):
+    result = await run_full_pipeline(saas_id, async_session)
     return result
 async def debug_pipeline_test():
     from app.agents.auditor import run_pipeline, layer1_heuristic
