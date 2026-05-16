@@ -60,7 +60,8 @@ async def register_saas(payload: SaaSInput, background: BackgroundTasks, db: Asy
         await db.commit()
         await db.refresh(saas)
 
-        background.add_task(_run_pipeline_background, saas.id)
+        import asyncio
+        asyncio.create_task(_run_pipeline_background(str(saas.id)))
 
         return saas
     except HTTPException:
