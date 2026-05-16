@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.models.saas import SaaS
 from app.models.lead import Lead
 from app.models.pipeline_run import PipelineRun
+from app.agents.sentinel import gather_raw_leads
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         search_terms = pain_points + competitors + [saas.name]
 
         logger.info(f"Search terms: {search_terms}")
-        raw_leads = []
+        raw_leads = await gather_raw_leads(search_terms)
+        logger.info(f"Found {len(raw_leads)} raw leads")
 
         logger.info(f"Found {len(raw_leads)} raw leads")
 
