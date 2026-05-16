@@ -25,11 +25,12 @@ async def _run_pipeline_background(saas_id: str):
             async with async_session() as db:
                 result = await run_full_pipeline(saas_id, db)
                 logger.info(f"Pipeline result: {result}")
+                return result
     except asyncio.TimeoutError:
-        logging.getLogger(__name__).error(f"Pipeline {saas_id} timed out after 300s")
+        logger.error(f"Pipeline {saas_id} timed out after 300s")
     except Exception as e:
         import traceback
-        logging.getLogger(__name__).error(f"Background pipeline failed: {e}\n{traceback.format_exc()}")
+        logger.error(f"Background pipeline failed: {e}\n{traceback.format_exc()}")
 
 
 @router.post("/quick-scan")
