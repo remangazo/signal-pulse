@@ -18,12 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[AsyncSession]) -> dict:
-    """
-    Runs the full pipeline with its OWN database session.
-    session_factory must produce sessionmaker(AsyncSession, expire_on_commit=False).
-    """
     start = time.time()
-    logger.info(f"Starting pipeline for SaaS {saas_id}")
+    logger.info(f"PIPELINE_START: {saas_id}")
 
     async with session_factory() as db:
         result = await db.execute(select(SaaS).where(SaaS.id == saas_id))
@@ -39,36 +35,19 @@ async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[As
 
         try:
             config = json.loads(saas.config or "{}")
-            icp_ideal = config.get("icp_ideal", "")
-            icp_not_ideal = config.get("icp_not_ideal", "")
-            icp_signals = config.get("icp_signals", "")
-            icp_exclude = config.get("icp_exclude", "")
-            icp_geo = config.get("icp_geo", "")
-            icp_budget = config.get("icp_budget", "")
-
             pain_points = json.loads(saas.pain_points) if saas.pain_points else []
             competitors = json.loads(saas.competitors) if saas.competitors else []
             search_terms = pain_points + competitors + [saas.name]
 
-            if icp_ideal:
-                search_terms.append(icp_ideal)
-            if icp_signals:
-                search_terms.extend([s.strip() for s in icp_signals.split(",") if s.strip()])
-            if icp_geo:
-                search_terms.append(icp_geo)
-            if icp_budget:
-                search_terms.append(icp_budget)
-
-            user_chat_id = None
-            if saas.user_id:
-                from app.models.user import User
-                user_result = await db.execute(select(User).where(User.id == saas.user_id))
-                user = user_result.scalar_one_or_none()
-                user_chat_id = user.telegram_chat_id if user else None
-
-            logger.info(f"Searching with terms: {search_terms}")
+            logger.info(f"PIPELINE_SEARCH_TERMS: {search_terms}")
             raw_leads = await gather_raw_leads(search_terms)
-            logger.info(f"Found {len(raw_leads)} raw leads")
+            logger.info(f"PIPELINE_RAW_LEADS: {len(raw_leads)}")
+
+            logger.info(f"PIPELINE_LLM_START")
+            # Process leads with LLM (first 3) + layer1 (rest)
+            leads_created = 0
+            errors = 0
+            created_leads = []
 
             saas_info = {
                 "name": saas.name,
@@ -76,17 +55,7 @@ async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[As
                 "tone": saas.tone,
                 "competitors": competitors,
                 "pain_points": pain_points,
-                "icp_ideal": icp_ideal,
-                "icp_not_ideal": icp_not_ideal,
-                "icp_signals": icp_signals,
-                "icp_exclude": icp_exclude,
-                "icp_geo": icp_geo,
-                "icp_budget": icp_budget,
             }
-
-            leads_created = 0
-            errors = 0
-            created_leads = []
 
             scored_leads = []
             for raw in raw_leads:
@@ -95,23 +64,19 @@ async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[As
 
             scored_leads.sort(key=lambda x: x[0], reverse=True)
             max_leads_to_process = min(10, len(scored_leads))
-            logger.info(f"Processing top {max_leads_to_process} leads out of {len(raw_leads)} (LLM first, layer1 fallback)")
 
             for i, (score, classification, raw) in enumerate(scored_leads[:max_leads_to_process]):
                 try:
                     uses_llm = i < 3
                     if uses_llm:
-                        try:
-                            audio_result = await run_pipeline(
-                                content=raw["content"],
-                                saas_description=saas.description or "",
-                                saas_info=saas_info,
-                            )
-                        except Exception as e:
-                            logger.warning(f"LLM pipeline failed for lead, using layer1: {e}")
-                            uses_llm = False
-
-                    if not uses_llm:
+                        logger.info(f"PIPELINE_LLM_LEAD_{i}")
+                        audio_result = await run_pipeline(
+                            content=raw["content"],
+                            saas_description=saas.description or "",
+                            saas_info=saas_info,
+                        )
+                        logger.info(f"PIPELINE_LLM_LEAD_{i}_DONE")
+                    else:
                         audio_result = {
                             "intent_score": round(score * 10, 1),
                             "layer": 1,
@@ -126,18 +91,16 @@ async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[As
                         continue
 
                     if uses_llm:
-                        try:
-                            ghost = await draft_reply(
-                                lead_content=raw["content"],
-                                saas_name=saas.name or "",
-                                saas_description=saas.description or "",
-                                tone=saas.tone or "professional",
-                                competitor_mentioned=audio_result.get("competitor_mentioned"),
-                                pain_points=audio_result.get("pain_points"),
-                            )
-                        except Exception as e:
-                            logger.warning(f"Ghostwriter failed, using empty reply: {e}")
-                            ghost = {"reply": "", "angle": "fallback"}
+                        logger.info(f"PIPELINE_GHOST_{i}")
+                        ghost = await draft_reply(
+                            lead_content=raw["content"],
+                            saas_name=saas.name or "",
+                            saas_description=saas.description or "",
+                            tone=saas.tone or "professional",
+                            competitor_mentioned=audio_result.get("competitor_mentioned"),
+                            pain_points=audio_result.get("pain_points"),
+                        )
+                        logger.info(f"PIPELINE_GHOST_{i}_DONE")
                     else:
                         ghost = {"reply": "", "angle": "layer1"}
 
@@ -157,40 +120,28 @@ async def run_full_pipeline(saas_id: str, session_factory: async_sessionmaker[As
                     )
                     db.add(lead)
                     leads_created += 1
-                    created_leads.append({
-                        "author": raw.get("author", "unknown"),
-                        "source": raw.get("source", "unknown"),
-                        "intent_score": audio_result.get("intent_score", 0),
-                        "content": raw["content"],
-                        "content_preview": raw["content"][:100],
-                    })
-                    logger.info(f"Created lead: {raw.get('author', 'unknown')} from {raw.get('source', 'unknown')}")
+                    logger.info(f"PIPELINE_LEAD_CREATED_{i}")
                 except Exception as e:
                     errors += 1
-                    logger.error(f"Error processing lead: {e}")
+                    logger.error(f"PIPELINE_LEAD_ERROR_{i}: {e}")
                     continue
 
-            duration = round(time.time() - start, 1)
+            logger.info(f"PIPELINE_LLM_DONE leads={leads_created} errors={errors}")
 
             run.status = "success"
             run.candidates = len(raw_leads)
             run.leads_found = leads_created
             run.errors = errors
-            run.duration_seconds = duration
+            run.duration_seconds = round(time.time() - start, 1)
             await db.commit()
 
-            if leads_created > 0:
-                avg_score = round(sum(l.get("intent_score", 0) for l in created_leads) / len(created_leads), 1)
-                await notify_batch_leads(saas_name=saas.name, leads=created_leads, chat_id=user_chat_id)
-                await notify_pipeline_complete(saas_name=saas.name, total_leads=leads_created, avg_score=avg_score, chat_id=user_chat_id)
-
-            logger.info(f"Pipeline complete: {leads_created} leads, {errors} errors, {duration}s")
-            return {"status": "success", "leads_found": leads_created, "errors": errors, "total_candidates": len(raw_leads), "duration_seconds": duration}
+            logger.info(f"PIPELINE_DONE: {leads_created} leads, {errors} errors, {run.duration_seconds}s")
+            return {"status": "success", "leads_found": leads_created, "errors": errors, "total_candidates": len(raw_leads), "duration_seconds": run.duration_seconds}
 
         except Exception as e:
             run.status = "failed"
-            run.error_message = str(e)
+            run.error_message = f"{type(e).__name__}: {e}"
             run.duration_seconds = round(time.time() - start, 1)
             await db.commit()
-            logger.error(f"Pipeline failed: {e}")
+            logger.error(f"PIPELINE_FAILED: {e}")
             return {"status": "error", "message": str(e)}
