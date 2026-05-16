@@ -14,7 +14,7 @@ from app.models.pipeline_run import PipelineRun
 from app.agents.sentinel import gather_raw_leads
 from app.agents.auditor import run_pipeline
 from app.agents.ghostwriter import draft_reply
-from app.notifications.telegram import notify_new_lead, notify_pipeline_complete
+from app.notifications.telegram import notify_batch_leads, notify_pipeline_complete
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,11 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         if icp_ideal:
             search_terms.append(icp_ideal)
         if icp_signals:
-            search_terms.extend(icp_signals.split(","))
+            search_terms.extend([s.strip() for s in icp_signals.split(",") if s.strip()])
+        if icp_geo:
+            search_terms.append(icp_geo)
+        if icp_budget:
+            search_terms.append(icp_budget)
 
         user_chat_id = None
         if saas.user_id:
@@ -78,6 +82,7 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
 
         leads_created = 0
         errors = 0
+        created_leads = []
 
         from app.agents.auditor import layer1_heuristic
         scored_leads = []
@@ -122,15 +127,14 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
                 )
                 db.add(lead)
                 leads_created += 1
+                created_leads.append({
+                    "author": raw.get("author", "unknown"),
+                    "source": raw.get("source", "unknown"),
+                    "intent_score": audio_result.get("intent_score", 0),
+                    "content": raw["content"],
+                    "content_preview": raw["content"][:100],
+                })
                 logger.info(f"Created lead: {raw.get('author', 'unknown')} from {raw.get('source', 'unknown')}")
-
-                await notify_new_lead(
-                    saas_name=saas.name,
-                    lead_name=raw.get("author", "unknown"),
-                    lead_source=raw.get("source", "unknown"),
-                    summary=audio_result.get("suggested_approach", ""),
-                    chat_id=user_chat_id,
-                )
             except Exception as e:
                 errors += 1
                 logger.error(f"Error processing lead: {e}")
@@ -146,7 +150,9 @@ async def run_full_pipeline(saas_id: str, db: AsyncSession) -> dict:
         await db.commit()
 
         if leads_created > 0:
-            await notify_pipeline_complete(saas_name=saas.name, total_leads=leads_created, chat_id=user_chat_id)
+            avg_score = round(sum(l.get("intent_score", 0) for l in created_leads) / len(created_leads), 1)
+            await notify_batch_leads(saas_name=saas.name, leads=created_leads, chat_id=user_chat_id)
+            await notify_pipeline_complete(saas_name=saas.name, total_leads=leads_created, avg_score=avg_score, chat_id=user_chat_id)
 
         logger.info(f"Pipeline complete: {leads_created} leads, {errors} errors, {duration}s")
         return {"status": "success", "leads_found": leads_created, "errors": errors, "total_candidates": len(raw_leads), "duration_seconds": duration}

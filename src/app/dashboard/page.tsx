@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
@@ -18,6 +18,25 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [scoreMin, setScoreMin] = useState(0)
   const [expandedLead, setExpandedLead] = useState<string | null>(null)
+  const [updating, setUpdating] = useState<Set<string>>(new Set())
+
+  async function handleStatusUpdate(leadId: string, status: string) {
+    setUpdating((prev) => new Set(prev).add(leadId))
+    try {
+      await api.leads.updateStatus(leadId, status)
+      setLeadsMap((prev) => {
+        const next = { ...prev }
+        for (const sid in next) {
+          next[sid] = next[sid].map((l) => (l.id === leadId ? { ...l, status } : l))
+        }
+        return next
+      })
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setUpdating((prev) => { const next = new Set(prev); next.delete(leadId); return next })
+    }
+  }
 
   useEffect(() => {
     if (!token) return
@@ -145,7 +164,7 @@ export default function DashboardPage() {
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-deep-card rounded-xl border border-border p-4">
-                <p className="text-sm font-medium text-foreground mb-3">📈 Leads por día</p>
+                <p className="text-sm font-medium text-foreground mb-3">📈 Leads por dia</p>
                 {chartData.dates.length === 0 ? (
                   <p className="text-xs text-muted text-center py-6">Aún no hay datos</p>
                 ) : (
@@ -165,7 +184,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-deep-card rounded-xl border border-border p-4">
-                <p className="text-sm font-medium text-foreground mb-3">🎯 Distribución de scores</p>
+                <p className="text-sm font-medium text-foreground mb-3">🎯 Distribucion de scores</p>
                 <div className="space-y-2">
                   {[
                     { label: "Bajo (0-2)", value: scoreDist[0], color: "bg-red-500/60" },
@@ -207,6 +226,15 @@ export default function DashboardPage() {
                 <span className="text-foreground font-medium w-3">{scoreMin}+</span>
               </div>
               <span className="text-xs text-muted ml-auto">{filteredLeads.length} resultados</span>
+              <button onClick={async () => {
+                try {
+                  const [list, overview] = await Promise.all([api.saas.list(), api.stats.overview()])
+                  setSaasList(list); setSvrStats(overview)
+                  const map: Record<string, Lead[]> = {}
+                  for (const s of list) { map[s.id] = await api.leads.list(s.id) }
+                  setLeadsMap(map)
+                } catch (e) { console.error(e) }
+              }} className="px-2 py-1 text-[10px] rounded-lg bg-signal/20 text-signal hover:bg-signal/30 transition">Refrescar</button>
             </div>
 
             <div className="space-y-2">
@@ -240,6 +268,12 @@ export default function DashboardPage() {
                     {expandedLead === lead.id && (
                       <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
                         <p className="text-xs text-foreground bg-deep rounded-lg p-2">{lead.content}</p>
+                        {lead.pain_points && lead.pain_points !== "null" && lead.pain_points !== "[]" && (
+                          <div>
+                            <p className="text-[10px] text-muted mb-0.5">Pain Points:</p>
+                            <p className="text-xs text-foreground bg-deep rounded-lg p-2">{typeof lead.pain_points === "string" ? lead.pain_points : JSON.stringify(lead.pain_points)}</p>
+                          </div>
+                        )}
                         {lead.suggested_reply && (
                           <div>
                             <p className="text-[10px] text-muted mb-0.5">✍️ Respuesta sugerida:</p>
@@ -247,12 +281,15 @@ export default function DashboardPage() {
                           </div>
                         )}
                         <div className="flex gap-1.5 flex-wrap">
-                          <button className="px-2 py-1 text-[10px] rounded-lg bg-green-900/30 text-green-400 hover:bg-green-900/50 transition">✅ Contactado</button>
-                          <button className="px-2 py-1 text-[10px] rounded-lg bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50 transition">⭐ Calificar</button>
-                          <button className="px-2 py-1 text-[10px] rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 transition">🗑️ Descartar</button>
+                          <button onClick={() => handleStatusUpdate(lead.id, "contacted")} disabled={updating.has(lead.id)}
+                            className="px-2 py-1 text-[10px] rounded-lg bg-green-900/30 text-green-400 hover:bg-green-900/50 transition disabled:opacity-50">Contactado</button>
+                          <button onClick={() => handleStatusUpdate(lead.id, "qualified")} disabled={updating.has(lead.id)}
+                            className="px-2 py-1 text-[10px] rounded-lg bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50 transition disabled:opacity-50">Calificar</button>
+                          <button onClick={() => handleStatusUpdate(lead.id, "rejected")} disabled={updating.has(lead.id)}
+                            className="px-2 py-1 text-[10px] rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 transition disabled:opacity-50">Descartar</button>
                           {lead.source_url && (
                             <a href={lead.source_url} target="_blank" rel="noopener noreferrer"
-                              className="px-2 py-1 text-[10px] rounded-lg bg-signal/20 text-signal hover:bg-signal/30 transition">🔗 Ver fuente</a>
+                              className="px-2 py-1 text-[10px] rounded-lg bg-signal/20 text-signal hover:bg-signal/30 transition">Ver fuente</a>
                           )}
                         </div>
                       </div>
@@ -267,3 +304,5 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+

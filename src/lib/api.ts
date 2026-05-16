@@ -59,7 +59,12 @@ export const api = {
   },
   leads: {
     list: (saasId: string) =>
-      request<Array<{ id: string; saas_id: string; name: string; source: string; summary: string; intent_score: number; status: string; created_at: string }>>(`/leads/${saasId}`),
+      request<Array<{ id: string; saas_id: string; author: string; source: string; source_url: string; content: string; intent_score: number; pain_points: string; suggested_reply: string; status: string; user_rating: number | null; created_at: string }>>(`/leads/${saasId}`),
+    updateStatus: (leadId: string, status: string) =>
+      request<{ status: string }>(`/leads/${leadId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
   },
   stats: {
     overview: () =>

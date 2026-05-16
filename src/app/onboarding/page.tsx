@@ -82,7 +82,6 @@ export default function OnboardingPage() {
       setLoading(false)
     }
   }
-  }
 
   const discoveredCompetitors: string[] = (() => {
     try { return JSON.parse(analysis?.competitors || "[]") } catch { return [] }

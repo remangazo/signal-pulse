@@ -35,3 +35,19 @@ async def submit_feedback(payload: LeadFeedback, db: AsyncSession = Depends(get_
 
     await db.commit()
     return {"status": "ok"}
+
+
+@router.patch("/{lead_id}/status")
+async def update_lead_status(lead_id: str, payload: dict, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    new_status = payload.get("status")
+    if new_status not in ("new", "contacted", "qualified", "approved", "rejected", "reviewed"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    lead.status = new_status
+    await db.commit()
+    return {"status": "ok"}
